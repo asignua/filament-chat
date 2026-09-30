@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Asignua\FilamentChat\Data;
+
+use Asignua\FilamentChat\Support\ChatManager;
+
+/**
+ * A message payload: text and, optionally, a registered record it is about.
+ * Half a reference (a type without an id or an unknown type) is dropped whole.
+ */
+final readonly class MessageData
+{
+    public function __construct(
+        public string $body,
+        public ?string $referenceType = null,
+        public ?int $referenceId = null,
+    ) {}
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        $body = $data['body'] ?? null;
+        $type = $data['reference_type'] ?? null;
+        $id = $data['reference_id'] ?? null;
+
+        $type = is_string($type) && app(ChatManager::class)->references->get($type) !== null ? $type : null;
+        $id = is_numeric($id) && (int) $id > 0 ? (int) $id : null;
+        $complete = $type !== null && $id !== null;
+
+        return new self(
+            body: is_string($body) ? trim($body) : '',
+            referenceType: $complete ? $type : null,
+            referenceId: $complete ? $id : null,
+        );
+    }
+}

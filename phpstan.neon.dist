@@ -1,0 +1,15 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 8
+    paths:
+        - src
+    tmpDir: build/phpstan
+    checkOctaneCompatibility: true
+    ignoreErrors:
+        # Larastan resolves view names against the app's resources/views only;
+        # the package's namespaced views (filament-chat::…) are registered at runtime.
+        -
+            message: '#expects view-string\|null, string given#'
+            identifier: argument.type

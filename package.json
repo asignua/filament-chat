@@ -1,0 +1,12 @@
+{
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "npx @tailwindcss/cli --input ./resources/css/index.css --output ./resources/dist/filament-chat.css --minify",
+        "dev": "npx @tailwindcss/cli --input ./resources/css/index.css --output ./resources/dist/filament-chat.css --watch"
+    },
+    "devDependencies": {
+        "@tailwindcss/cli": "^4.1.0",
+        "tailwindcss": "^4.1.0"
+    }
+}

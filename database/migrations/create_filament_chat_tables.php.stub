@@ -1,0 +1,90 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $tables = config('filament-chat.tables');
+        $users = $this->usersTable();
+
+        Schema::create($tables['conversations'], function (Blueprint $table) use ($users): void {
+            $table->id();
+            $table->ulid('ulid')->unique();
+            $table->string('type');
+            $table->string('title')->nullable();
+            $table->foreignId('created_by_user_id')->nullable()->constrained($users)->nullOnDelete();
+            // "{smaller id}:{bigger id}" of a direct conversation — one per pair of people.
+            $table->string('direct_key')->nullable()->unique();
+            $table->timestamp('last_message_at')->nullable()->index();
+            $table->timestamps();
+        });
+
+        Schema::create($tables['participants'], function (Blueprint $table) use ($tables, $users): void {
+            $table->id();
+            $table->ulid('ulid')->unique();
+            $table->foreignId('conversation_id')->constrained($tables['conversations'])->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained($users)->cascadeOnDelete();
+            // The last message this person has read; anything newer (and not theirs) is unread.
+            $table->unsignedBigInteger('last_read_message_id')->nullable();
+            $table->timestamp('joined_at')->nullable();
+            // Left a group: keeps the history up to this moment, can no longer write.
+            $table->timestamp('left_at')->nullable();
+            $table->timestamps();
+
+            $table->unique(['conversation_id', 'user_id']);
+            $table->index(['user_id', 'left_at']);
+        });
+
+        Schema::create($tables['messages'], function (Blueprint $table) use ($tables, $users): void {
+            $table->id();
+            $table->ulid('ulid')->unique();
+            $table->foreignId('conversation_id')->constrained($tables['conversations'])->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained($users)->nullOnDelete();
+            $table->text('body');
+            // A record of your panel the message points at: reference key + record key.
+            $table->string('reference_type')->nullable();
+            $table->unsignedBigInteger('reference_id')->nullable();
+            // Keys of the members mentioned with "@Name".
+            $table->json('mentions')->nullable();
+            $table->timestamp('edited_at')->nullable();
+            $table->timestamps();
+
+            $table->index(['conversation_id', 'id']);
+        });
+
+        Schema::create($tables['reactions'], function (Blueprint $table) use ($tables, $users): void {
+            $table->id();
+            $table->ulid('ulid')->unique();
+            $table->foreignId('chat_message_id')->constrained($tables['messages'])->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained($users)->cascadeOnDelete();
+            $table->string('reaction', 16);
+            $table->timestamps();
+
+            $table->unique(['chat_message_id', 'user_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        $tables = config('filament-chat.tables');
+
+        Schema::dropIfExists($tables['reactions']);
+        Schema::dropIfExists($tables['messages']);
+        Schema::dropIfExists($tables['participants']);
+        Schema::dropIfExists($tables['conversations']);
+    }
+
+    private function usersTable(): string
+    {
+        /** @var class-string<\Illuminate\Database\Eloquent\Model> $model */
+        $model = config('filament-chat.user_model') ?? config('auth.providers.users.model');
+
+        return (new $model)->getTable();
+    }
+};

@@ -1,0 +1,82 @@
+/*
+ * Filament Chat styles. Built into resources/dist/filament-chat.css (npm run build)
+ * and registered with FilamentAsset — no custom theme needed in the host.
+ *
+ * Filament's theme is only *referenced*: its colours, spacing and the `dark`
+ * variant are known to Tailwind, but nothing of it is emitted — the panel
+ * already ships it. Only the utilities used by the chat views end up here.
+ */
+/*
+ * Filament registers plugin stylesheets BEFORE its own app.css. Without this line the
+ * `utilities` layer would be declared first and Filament's `base` (preflight: padding 0,
+ * border 0) would win over every chat utility. Declaring the order keeps utilities last.
+ */
+@layer theme, base, components, utilities;
+
+@reference '../../vendor/filament/filament/resources/css/theme.css';
+
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+
+@source '../views';
+@source inline('underline break-all');
+
+/* Group avatar and author name in a group — the accent colour (fi-color-{color} provides --color-*). */
+.fchat-group-avatar {
+    background-color: color-mix(in oklab, var(--color-500) 15%, transparent);
+    color: var(--color-600);
+}
+
+.fchat-group-avatar:where(.dark, .dark *) {
+    color: var(--color-300);
+}
+
+.fchat-author {
+    color: var(--color-700);
+}
+
+.fchat-author:where(.dark, .dark *) {
+    color: var(--color-300);
+}
+
+.fchat-accent {
+    color: var(--color-500);
+}
+
+/*
+ * The Chat page fits its height to the screen itself; Filament's main
+ * container min-height ("screen minus 4rem") would leave a scroll with a
+ * two-row top bar.
+ */
+.fi-body:has(.fchat-page) .fi-main-ctn {
+    min-height: 0;
+}
+
+/*
+ * A pinned slide-over: from lg the page makes room (max-w-md = 28rem) instead
+ * of hiding under it. Below lg there is no room for a split — it overlays.
+ */
+@media (min-width: 64rem) {
+    html.fchat-pinned .fi-body {
+        padding-inline-end: 28rem;
+    }
+
+    html.fchat-pinned .fchat-dock {
+        box-shadow: none;
+    }
+}
+
+.fchat-pin-active {
+    color: var(--primary-600);
+}
+
+/* "@Name" in a message; one's own name stands out. */
+.fchat-mention {
+    border-radius: 0.25rem;
+    padding-inline: 0.125rem;
+    font-weight: 600;
+    background-color: color-mix(in oklab, currentColor 12%, transparent);
+}
+
+.fchat-mention-me {
+    background-color: color-mix(in oklab, var(--warning-400) 45%, transparent);
+}
