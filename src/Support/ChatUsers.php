@@ -33,6 +33,14 @@ final class ChatUsers
             return (string) $resolver($user);
         }
 
+        $attribute = ChatConfig::userNameAttribute();
+
+        if ($attribute !== null) {
+            $name = $user->getAttribute($attribute);
+
+            return is_scalar($name) && (string) $name !== '' ? (string) $name : '#'.$user->getKey();
+        }
+
         if ($user instanceof HasName) {
             return $user->getFilamentName();
         }
@@ -112,9 +120,9 @@ final class ChatUsers
      */
     public static function broadcastKey(Model $user): string
     {
-        $attribute = config('filament-chat.users.broadcast_key');
+        $attribute = ChatConfig::userBroadcastKey();
 
-        return (string) (is_string($attribute) && $attribute !== '' ? $user->getAttribute($attribute) : $user->getKey());
+        return (string) ($attribute !== null ? $user->getAttribute($attribute) : $user->getKey());
     }
 
     /**
@@ -122,8 +130,6 @@ final class ChatUsers
      */
     public static function searchColumns(): array
     {
-        $columns = config('filament-chat.users.search_columns', ['name']);
-
-        return is_array($columns) ? array_values(array_filter($columns, is_string(...))) : ['name'];
+        return ChatConfig::userSearchColumns();
     }
 }

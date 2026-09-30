@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Asignua\FilamentChat;
 
 use Asignua\FilamentChat\Pages\Chat;
+use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
+use Asignua\FilamentChat\Support\References\AllResources;
 use Asignua\FilamentChat\Support\References\ReferenceType;
 use BackedEnum;
 use Closure;
@@ -23,6 +25,10 @@ use UnitEnum;
  *     ->plugin(FilamentChatPlugin::make()
  *         ->users(fn (Builder $query) => $query->where('is_active', true))
  *         ->references([ReferenceType::resource(OrderResource::class)]))
+ *
+ * Every setter overrides the matching key of config/filament-chat.php; what is
+ * not set here comes from the config. Closures live here only (config must stay
+ * cacheable).
  */
 class FilamentChatPlugin implements Plugin
 {
@@ -34,24 +40,19 @@ class FilamentChatPlugin implements Plugin
     /** @var (Closure(Model): string)|null */
     protected ?Closure $userName = null;
 
-    /** @var Closure(): list<ReferenceType>|list<ReferenceType> */
+    /** @var (Closure(): list<AllResources|ReferenceType>)|list<AllResources|ReferenceType> */
     protected array|Closure $references = [];
 
-    protected bool $dock = true;
+    protected string|BackedEnum|Closure|null $navigationIcon = null;
 
-    protected bool $pinnable = true;
+    protected string|UnitEnum|Closure|null $navigationGroup = null;
 
-    protected bool $tabBadge = true;
-
-    protected string $color = 'primary';
-
-    protected string|BackedEnum|null $navigationIcon = null;
-
-    protected string|UnitEnum|null $navigationGroup = null;
-
-    protected ?int $navigationSort = null;
-
-    protected ?string $slug = null;
+    /**
+     * Config overrides collected by the setters: dotted key under `filament-chat.` → value.
+     *
+     * @var array<string, mixed>
+     */
+    protected array $config = [];
 
     public static function make(): static
     {
@@ -82,7 +83,8 @@ class FilamentChatPlugin implements Plugin
     }
 
     /**
-     * How a person is called in the chat. Default: Filament's HasName, then `name`.
+     * How a person is called in the chat. Default: users.name_attribute, then
+     * Filament's HasName, then `name`.
      *
      * @param Closure(Model): string $name
      */
@@ -94,9 +96,10 @@ class FilamentChatPlugin implements Plugin
     }
 
     /**
-     * Record types a message can point at.
+     * Record types a message can point at: explicit types and/or
+     * ReferenceType::allResources()->except([...]).
      *
-     * @param Closure(): list<ReferenceType>|list<ReferenceType> $references
+     * @param (Closure(): list<AllResources|ReferenceType>)|list<AllResources|ReferenceType> $references
      */
     public function references(array|Closure $references): static
     {
@@ -106,13 +109,55 @@ class FilamentChatPlugin implements Plugin
     }
 
     /**
-     * The chat button in the top bar with a slide-over panel.
+     * Who may see a referenced record: 'policy', 'resource' or false.
+     */
+    public function authorizeReferences(string|false $mode): static
+    {
+        return $this->set('references.authorize', $mode);
+    }
+
+    public function groups(bool $condition = true): static
+    {
+        return $this->set('features.groups', $condition);
+    }
+
+    public function reactions(bool $condition = true): static
+    {
+        return $this->set('features.reactions', $condition);
+    }
+
+    public function mentions(bool $condition = true): static
+    {
+        return $this->set('features.mentions', $condition);
+    }
+
+    public function readReceipts(bool $condition = true): static
+    {
+        return $this->set('features.read_receipts', $condition);
+    }
+
+    /**
+     * Authors may edit their messages; `$window` — minutes after sending (null — any time).
+     */
+    public function editing(bool $condition = true, ?int $window = null): static
+    {
+        return $this->set('features.editing.enabled', $condition)->set('features.editing.window', $window);
+    }
+
+    /**
+     * Real-time delivery over a websocket (true) or polling (false).
+     */
+    public function realtime(bool $condition = true): static
+    {
+        return $this->set('realtime.enabled', $condition);
+    }
+
+    /**
+     * The top-bar button with a slide-over.
      */
     public function dock(bool $condition = true): static
     {
-        $this->dock = $condition;
-
-        return $this;
+        return $this->set('ui.dock', $condition);
     }
 
     /**
@@ -120,9 +165,7 @@ class FilamentChatPlugin implements Plugin
      */
     public function pinnable(bool $condition = true): static
     {
-        $this->pinnable = $condition;
-
-        return $this;
+        return $this->set('ui.pinnable', $condition);
     }
 
     /**
@@ -130,9 +173,7 @@ class FilamentChatPlugin implements Plugin
      */
     public function tabBadge(bool $condition = true): static
     {
-        $this->tabBadge = $condition;
-
-        return $this;
+        return $this->set('ui.tab_badge', $condition);
     }
 
     /**
@@ -140,19 +181,25 @@ class FilamentChatPlugin implements Plugin
      */
     public function color(string $color): static
     {
-        $this->color = $color;
-
-        return $this;
+        return $this->set('ui.color', $color);
     }
 
-    public function navigationIcon(string|BackedEnum|null $icon): static
+    public function slug(string $slug): static
+    {
+        return $this->set('ui.slug', $slug);
+    }
+
+    public function navigationIcon(string|BackedEnum|Closure|null $icon): static
     {
         $this->navigationIcon = $icon;
 
         return $this;
     }
 
-    public function navigationGroup(string|UnitEnum|null $group): static
+    /**
+     * A closure is resolved per request — e.g. a translated group name.
+     */
+    public function navigationGroup(string|UnitEnum|Closure|null $group): static
     {
         $this->navigationGroup = $group;
 
@@ -161,55 +208,29 @@ class FilamentChatPlugin implements Plugin
 
     public function navigationSort(?int $sort): static
     {
-        $this->navigationSort = $sort;
-
-        return $this;
-    }
-
-    public function slug(?string $slug): static
-    {
-        $this->slug = $slug;
-
-        return $this;
-    }
-
-    public function hasDock(): bool
-    {
-        return $this->dock;
-    }
-
-    public function isPinnable(): bool
-    {
-        return $this->pinnable;
-    }
-
-    public function hasTabBadge(): bool
-    {
-        return $this->tabBadge;
+        return $this->set('ui.navigation.sort', $sort);
     }
 
     public function getNavigationIcon(): string|BackedEnum|null
     {
-        return $this->navigationIcon;
+        $icon = value($this->navigationIcon);
+
+        return is_string($icon) || $icon instanceof BackedEnum ? $icon : ChatConfig::navigationIcon();
     }
 
     public function getNavigationGroup(): string|UnitEnum|null
     {
-        return $this->navigationGroup;
-    }
+        $group = value($this->navigationGroup);
 
-    public function getNavigationSort(): ?int
-    {
-        return $this->navigationSort;
-    }
-
-    public function getSlug(): ?string
-    {
-        return $this->slug;
+        return is_string($group) || $group instanceof UnitEnum ? $group : ChatConfig::navigationGroup();
     }
 
     public function register(Panel $panel): void
     {
+        foreach ($this->config as $key => $value) {
+            config(['filament-chat.'.$key => $value]);
+        }
+
         $panel->pages([Chat::class]);
 
         $manager = app(ChatManager::class);
@@ -217,7 +238,6 @@ class FilamentChatPlugin implements Plugin
         $manager->panelId = $panel->getId();
         $manager->modifyUsersQueryUsing = $this->users;
         $manager->userNameUsing = $this->userName;
-        $manager->color = $this->color;
 
         foreach (value($this->references) as $type) {
             $manager->references->register($type);
@@ -229,11 +249,19 @@ class FilamentChatPlugin implements Plugin
             // specificity the later file wins — the theme would beat our `dark:` variants.
             ->renderHook(PanelsRenderHook::STYLES_AFTER, fn (): string => '<link rel="stylesheet" href="'
                 .e(FilamentAsset::getStyleHref(FilamentChatServiceProvider::STYLESHEET, FilamentChatServiceProvider::PACKAGE)).'" />')
-            ->renderHook(PanelsRenderHook::HEAD_START, fn (): string => $this->dock && $this->pinnable ? view('filament-chat::hooks.pinned')->render() : '')
-            ->renderHook(PanelsRenderHook::HEAD_END, fn (): string => $this->tabBadge ? view('filament-chat::hooks.tab-badge')->render() : '')
-            ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn (): string => view('filament-chat::hooks.dock-button', ['dock' => $this->dock])->render())
-            ->renderHook(PanelsRenderHook::BODY_END, fn (): string => $this->dock ? view('filament-chat::hooks.dock-panel', ['pinnable' => $this->pinnable])->render() : '');
+            ->renderHook(PanelsRenderHook::HEAD_START, fn (): string => ChatConfig::dock() && ChatConfig::pinnable() ? view('filament-chat::hooks.pinned')->render() : '')
+            ->renderHook(PanelsRenderHook::HEAD_END, fn (): string => ChatConfig::tabBadge() ? view('filament-chat::hooks.tab-badge')->render() : '')
+            ->renderHook(PanelsRenderHook::SCRIPTS_AFTER, fn (): string => view('filament-chat::hooks.echo')->render())
+            ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn (): string => view('filament-chat::hooks.dock-button', ['dock' => ChatConfig::dock()])->render())
+            ->renderHook(PanelsRenderHook::BODY_END, fn (): string => ChatConfig::dock() ? view('filament-chat::hooks.dock-panel', ['pinnable' => ChatConfig::pinnable()])->render() : '');
     }
 
     public function boot(Panel $panel): void {}
+
+    protected function set(string $key, mixed $value): static
+    {
+        $this->config[$key] = $value;
+
+        return $this;
+    }
 }

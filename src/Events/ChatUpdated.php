@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat\Events;
 
+use Asignua\FilamentChat\Support\ChatConfig;
+use Illuminate\Broadcasting\InteractsWithBroadcasting;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 
@@ -18,6 +20,8 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
  */
 class ChatUpdated implements ShouldBroadcastNow
 {
+    use InteractsWithBroadcasting;
+
     /** Event name for Echo (the listener is `.filament-chat.updated`). */
     public const string NAME = 'filament-chat.updated';
 
@@ -32,7 +36,10 @@ class ChatUpdated implements ShouldBroadcastNow
         public readonly string $conversation,
         public readonly ?string $message = null,
         public readonly ?string $author = null,
-    ) {}
+    ) {
+        // `realtime.connection` — a connection other than the app's default one.
+        $this->broadcastVia(ChatConfig::broadcastConnection());
+    }
 
     /**
      * @return list<PrivateChannel>

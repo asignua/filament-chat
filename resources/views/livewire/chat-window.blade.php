@@ -56,7 +56,9 @@
             </x-filament::input.wrapper>
             <div class="flex flex-wrap gap-2">
                 {{ $this->newDirectAction }}
-                {{ $this->newGroupAction }}
+                @if ($groups)
+                    {{ $this->newGroupAction }}
+                @endif
             </div>
         </div>
 
@@ -245,7 +247,7 @@
                                     @endif
                                 </div>
                             </div>
-                            @if ($messageReactions !== [])
+                            @if ($reactionsOn && $messageReactions !== [])
                                 <div class="mt-0.5 flex flex-wrap gap-1">
                                     @foreach (Reaction::cases() as $reaction)
                                         @continue(!isset($messageReactions[$reaction->value]))
@@ -285,6 +287,7 @@
                                         <x-filament::icon icon="heroicon-m-pencil-square" class="size-4" />
                                     </button>
                                 @endif
+                                @if ($reactionsOn)
                                 <button
                                     type="button"
                                     x-on:click="picker = !picker"
@@ -313,6 +316,7 @@
                                         >{{ $reaction->emoji() }}</button>
                                     @endforeach
                                 </div>
+                                @endif
                             </div>
                         @endif
                     </div>

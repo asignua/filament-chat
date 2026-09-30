@@ -70,7 +70,7 @@ abstract class TestCase extends Orchestra
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('a', 32)));
         $app['config']->set('database.default', 'testing');
         $app['config']->set('auth.providers.users.model', User::class);
-        $app['config']->set('filament-chat.realtime', true);
+        $app['config']->set('filament-chat.realtime.enabled', true);
         $app['config']->set('broadcasting.default', 'null');
     }
 

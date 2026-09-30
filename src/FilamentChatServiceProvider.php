@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat;
 
+use Asignua\FilamentChat\Commands\InstallCommand;
 use Asignua\FilamentChat\Events\ChatUpdated;
 use Asignua\FilamentChat\Livewire\ChatDock;
 use Asignua\FilamentChat\Livewire\ChatWindow;
@@ -21,6 +22,7 @@ use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -40,7 +42,8 @@ class FilamentChatServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasViews()
             ->hasTranslations()
-            ->hasMigration('create_filament_chat_tables');
+            ->hasMigration('create_filament_chat_tables')
+            ->hasCommand(InstallCommand::class);
     }
 
     public function packageRegistered(): void
@@ -72,6 +75,13 @@ class FilamentChatServiceProvider extends PackageServiceProvider
                 ChatUpdated::CHANNEL.'{key}',
                 fn (Model $user, string $key): bool => ChatUsers::broadcastKey($user) === $key,
             );
+
+            // Private channels need /broadcasting/auth; many panels never set broadcasting up.
+            $this->app->booted(function (): void {
+                if (ChatConfig::registerAuthRoute() && !Route::has('broadcasting.auth')) {
+                    Broadcast::routes(['middleware' => ['web', 'auth']]);
+                }
+            });
         }
     }
 }

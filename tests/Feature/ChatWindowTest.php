@@ -117,7 +117,7 @@ class ChatWindowTest extends TestCase
 
     public function test_older_messages_load_on_demand(): void
     {
-        config(['filament-chat.page_size' => 2]);
+        config(['filament-chat.messages.page_size' => 2]);
         $me = $this->user();
         $conversation = $this->direct($me, $this->user());
 

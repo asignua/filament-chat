@@ -4,27 +4,44 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat\Support\References;
 
+use Asignua\FilamentChat\Support\ChatConfig;
+use Asignua\FilamentChat\Support\ChatManager;
 use BackedEnum;
+use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Gate;
 
 /**
  * The record types messages can point at, registered by the plugin
- * (`->references([...])`). Empty — the chat simply has no attachments.
+ * (`->references([...])`) or `filament-chat.references.all_resources`.
+ * Empty — the chat simply has no attachments.
+ *
+ * "All resources" is expanded lazily, on first use: the panel may still be
+ * collecting its resources when the plugin registers.
  */
 final class ReferenceRegistry
 {
     /** @var array<string, ReferenceType> */
     private array $types = [];
 
-    public function register(ReferenceType $type): void
+    private ?AllResources $all = null;
+
+    private bool $expanded = false;
+
+    public function register(ReferenceType|AllResources $type): void
     {
+        if ($type instanceof AllResources) {
+            $this->all = $type;
+            $this->expanded = false;
+
+            return;
+        }
+
         $this->types[$type->getKey()] = $type;
     }
 
     public function isEmpty(): bool
     {
-        return $this->types === [];
+        return $this->all() === [];
     }
 
     /**
@@ -32,12 +49,18 @@ final class ReferenceRegistry
      */
     public function all(): array
     {
+        if (!ChatConfig::referencesEnabled()) {
+            return [];
+        }
+
+        $this->expand();
+
         return $this->types;
     }
 
     public function get(?string $key): ?ReferenceType
     {
-        return $key !== null ? ($this->types[$key] ?? null) : null;
+        return $key !== null ? ($this->all()[$key] ?? null) : null;
     }
 
     /**
@@ -48,7 +71,7 @@ final class ReferenceRegistry
     {
         $found = null;
 
-        foreach ($this->types as $type) {
+        foreach ($this->all() as $type) {
             if ($type->matches($record) && ($found === null || is_subclass_of($type->getModel(), $found->getModel()))) {
                 $found = $type;
             }
@@ -62,7 +85,7 @@ final class ReferenceRegistry
      */
     public function forResource(string $resource): array
     {
-        return array_filter($this->types, fn (ReferenceType $type): bool => $type->getResource() === $resource);
+        return array_filter($this->all(), fn (ReferenceType $type): bool => $type->getResource() === $resource);
     }
 
     /**
@@ -70,7 +93,7 @@ final class ReferenceRegistry
      */
     public function options(): array
     {
-        return array_map(fn (ReferenceType $type): string => $type->getLabel(), $this->types);
+        return array_map(fn (ReferenceType $type): string => $type->getLabel(), $this->all());
     }
 
     /**
@@ -88,7 +111,7 @@ final class ReferenceRegistry
         }
 
         $record = $type->find($id);
-        $visible = $record !== null && Gate::allows('view', $record);
+        $visible = $record !== null && $type->canView($record);
 
         return [
             'type' => $type->getLabel(),
@@ -101,5 +124,47 @@ final class ReferenceRegistry
             'icon' => $type->getIcon(),
             'color' => $type->getColor(),
         ];
+    }
+
+    /**
+     * Adds a type per panel resource (config `references.all_resources` or
+     * AllResources from the plugin); explicit types and their models win.
+     */
+    private function expand(): void
+    {
+        if ($this->expanded) {
+            return;
+        }
+
+        $this->expanded = true;
+        $all = $this->all ?? (ChatConfig::allResources() ? AllResources::make() : null);
+
+        if ($all === null) {
+            return;
+        }
+
+        $panel = app(ChatManager::class)->panel();
+
+        if ($panel === null) {
+            return;
+        }
+
+        $except = [...$all->getExcept(), ...ChatConfig::exceptResources()];
+        $models = array_map(fn (ReferenceType $type): string => $type->getModel(), $this->types);
+
+        foreach ($panel->getResources() as $resource) {
+            if (!is_subclass_of($resource, Resource::class)) {
+                continue;
+            }
+
+            $model = $resource::getModel();
+            $key = $resource::getSlug($panel);
+
+            if (in_array($resource, $except, true) || in_array($model, $models, true) || isset($this->types[$key])) {
+                continue;
+            }
+
+            $this->types[$key] = ReferenceType::resource($resource, $key);
+        }
     }
 }

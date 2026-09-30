@@ -10,6 +10,7 @@ use Asignua\FilamentChat\Pages\Chat;
 use Asignua\FilamentChat\Policies\ConversationPolicy;
 use Asignua\FilamentChat\Repositories\ConversationRepository;
 use Asignua\FilamentChat\Services\ChatService;
+use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\ChatUsers;
 use Filament\Actions\Action;
@@ -115,7 +116,7 @@ class DiscussInChatAction extends Action
 
         $groups = [];
 
-        foreach (app(ConversationRepository::class)->activeGroupsFor($me) as $group) {
+        foreach (ChatConfig::groups() ? app(ConversationRepository::class)->activeGroupsFor($me) : [] as $group) {
             $groups[self::TO_GROUP.$group->ulid] = (string) $group->title;
         }
 

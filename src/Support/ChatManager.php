@@ -7,6 +7,8 @@ namespace Asignua\FilamentChat\Support;
 use Asignua\FilamentChat\FilamentChatPlugin;
 use Asignua\FilamentChat\Support\References\ReferenceRegistry;
 use Closure;
+use Filament\Facades\Filament;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -28,7 +30,15 @@ final class ChatManager
 
     public ?string $panelId = null;
 
-    public string $color = 'primary';
-
     public function __construct(public readonly ReferenceRegistry $references) {}
+
+    /**
+     * The panel the plugin is registered on; without it — the current one.
+     */
+    public function panel(): ?Panel
+    {
+        return $this->panelId !== null
+            ? Filament::getPanel($this->panelId, isStrict: false)
+            : Filament::getCurrentOrDefaultPanel();
+    }
 }

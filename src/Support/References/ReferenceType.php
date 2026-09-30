@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat\Support\References;
 
+use Asignua\FilamentChat\Support\ChatConfig;
 use BackedEnum;
 use Closure;
 use Filament\Resources\Resource;
@@ -12,6 +13,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 /**
@@ -44,6 +46,9 @@ final class ReferenceType
     /** @var list<string>|null */
     private ?array $searchColumns = null;
 
+    /** @var (Closure(Model): bool)|null */
+    private ?Closure $visible = null;
+
     /**
      * @param class-string<Model> $model
      */
@@ -58,6 +63,14 @@ final class ReferenceType
     public static function make(string $key, string $model): self
     {
         return new self($key, $model);
+    }
+
+    /**
+     * Every resource of the panel, apart from the excluded ones.
+     */
+    public static function allResources(): AllResources
+    {
+        return AllResources::make();
     }
 
     /**
@@ -119,6 +132,19 @@ final class ReferenceType
     public function url(Closure $url): self
     {
         $this->url = $url;
+
+        return $this;
+    }
+
+    /**
+     * This type's own rule of who may see a record — overrides
+     * `filament-chat.references.authorize`.
+     *
+     * @param Closure(Model): bool $visible
+     */
+    public function visibleUsing(Closure $visible): self
+    {
+        $this->visible = $visible;
 
         return $this;
     }
@@ -241,6 +267,24 @@ final class ReferenceType
         }
 
         return null;
+    }
+
+    /**
+     * May the current user see this record (its title and link)?
+     */
+    public function canView(Model $record): bool
+    {
+        if ($this->visible !== null) {
+            return (bool) ($this->visible)($record);
+        }
+
+        return match (ChatConfig::referenceAuthorization()) {
+            'resource' => $this->resource !== null
+                ? $this->resource::canView($record)
+                : Gate::getPolicyFor($record) === null || Gate::allows('view', $record),
+            'policy' => Gate::allows('view', $record),
+            default => true,
+        };
     }
 
     public function find(int|string $id): ?Model

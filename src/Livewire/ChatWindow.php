@@ -275,7 +275,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     {
         $conversation = $this->current();
         $user = ChatUsers::current();
-        $choice = Reaction::tryFrom($reaction);
+        $choice = ChatConfig::reactions() ? Reaction::tryFrom($reaction) : null;
 
         if ($conversation === null || $user === null || $choice === null || !Gate::allows(ConversationPolicy::SEND, $conversation)) {
             return;
@@ -368,7 +368,14 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $reference = RecordUrlResolver::resolve($url);
 
         if ($reference === null) {
-            Notification::make()->title(__('filament-chat::chat.drop_unsupported'))->warning()->send();
+            $type = RecordUrlResolver::unsupportedResourceLabel($url);
+
+            Notification::make()
+                ->title($type !== null
+                    ? __('filament-chat::chat.drop_not_allowed', ['type' => $type])
+                    : __('filament-chat::chat.drop_unsupported'))
+                ->warning()
+                ->send();
 
             return;
         }
@@ -427,6 +434,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     public function newGroupAction(): Action
     {
         return Action::make('newGroup')
+            ->visible(fn (): bool => ChatConfig::groups())
             ->label(__('filament-chat::chat.new_group'))
             ->icon('heroicon-o-user-group')
             ->color('gray')
@@ -574,7 +582,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             'hasOlder' => $current !== null && $messages->isNotEmpty()
                 && app(MessageRepository::class)->hasOlderThan($current, $messages->first()->id),
             // Read pointers come from the participants already loaded, once per render.
-            'readStatus' => $current !== null && $user !== null
+            'readStatus' => ChatConfig::readReceipts() && $current !== null && $user !== null
                 ? ReadStatus::for($current->participants, (int) $user->getKey())
                 : null,
             'reactions' => app(ReactionRepository::class)->forMessages(
@@ -588,7 +596,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             // key → name of everyone in the conversation: mentions in messages are highlighted by it.
             'names' => $names,
             // Whom "@" offers in the composer: active members but me.
-            'mentionable' => $current !== null && $user !== null
+            'mentionable' => ChatConfig::mentions() && $current !== null && $user !== null
                 ? array_values($current->participants
                     ->filter(fn ($participant): bool => $participant->isActive() && $participant->user_id !== $user->getKey() && $participant->user !== null)
                     ->map(fn ($participant): string => $names[$participant->user_id])
@@ -609,7 +617,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
                 : null,
             'realtime' => ChatConfig::realtime(),
             'polling' => ChatConfig::polling(),
-            'color' => app(ChatManager::class)->color,
+            'color' => ChatConfig::color(),
+            'groups' => ChatConfig::groups(),
+            'reactionsOn' => ChatConfig::reactions(),
         ]);
     }
 
@@ -722,7 +732,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
         foreach ($reference->searchRecords($search) as $record) {
             /** @var Model $record */
-            if (Gate::allows('view', $record)) {
+            if ($reference->canView($record)) {
                 $options[$record->getKey()] = $reference->getTitle($record);
             }
         }

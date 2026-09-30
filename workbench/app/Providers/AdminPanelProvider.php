@@ -20,6 +20,7 @@ use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Workbench\App\Filament\Resources\Notes\NoteResource;
+use Workbench\App\Filament\Resources\Users\UserResource;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -31,7 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->databaseNotifications()
-            ->resources([NoteResource::class])
+            ->resources([NoteResource::class, UserResource::class])
             ->plugin(FilamentChatPlugin::make()
                 ->users(fn (Builder $query) => $query->where('is_active', true))
                 ->references([ReferenceType::resource(NoteResource::class)->color('warning')]))

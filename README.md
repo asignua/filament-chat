@@ -1,23 +1,41 @@
 # Filament Chat
 
-Team chat for [Filament](https://filamentphp.com) panels: direct messages and groups, reactions,
-read receipts, a slide-over dock you can pin next to any page, and messages that point at your
-panel's records — drag a record link into the chat and it becomes a card.
+Team chat for [Filament](https://filamentphp.com) panels. Direct messages and groups, @mentions,
+editing, reactions, read receipts, a slide-over you can pin next to any page — and messages that
+point at your panel's records: drag a link to a record into the chat and it becomes a card.
 
-- Direct messages (one per pair) and groups: title, members, leave; the creator manages the group.
-- **@mentions**: type `@` for the list of members; a mention is highlighted and always rings the bell.
-- **Editing**: ✏️ on your message or ↑ in an empty composer; edited messages are marked.
-- Reactions (six emoji, one per person) and read receipts: ✓ sent, ✓✓ read (a group — by everyone).
-- A full **Chat** page and a **top-bar button** with a slide-over; on wide screens the slide-over can
-  be **pinned** as a split screen that stays open across pages.
-- Unread counters in the navigation, on the button, in the browser tab title and on the favicon.
-- **Real-time** over Laravel Echo (Reverb, Pusher, Ably) — or polling when there is no socket.
-- A database (bell) notification on the first unread message of a conversation.
-- **Record references**: register your resources, then attach a record with a picker, by dropping a
-  link to its page into the chat, or with "Attach current" from the slide-over. `DiscussInChatAction`
-  starts a conversation from a record page.
-- Privacy by design: a conversation is visible to its members only — admins included.
-- English and Ukrainian translations.
+Works with or without a websocket server: turn real-time on with one environment variable
+(Laravel Reverb, Pusher, Ably), or let the chat poll.
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration) — users, features, messages, interface, models & tables
+- [Record references](#record-references) — which records, who sees them, drag & drop, "Discuss in chat"
+- [Real-time delivery](#real-time-delivery) — Reverb, Docker, nginx, Pusher, polling
+- [Notifications](#notifications)
+- [Customising](#customising) — own models, audit trail, events
+- [Integration notes](#integration-notes) — custom themes, panels built by a package, several panels
+- [Troubleshooting](#troubleshooting)
+- [AI agents](#ai-agents)
+- [Testing](#testing)
+
+## Features
+
+| | |
+|---|---|
+| **Conversations** | Direct messages (one per pair) and groups: title, members, leave. The creator manages a group; whoever leaves keeps the history up to that moment. |
+| **@mentions** | Type `@` for the list of members. A mention is highlighted (your own name stands out) and always rings the bell. |
+| **Editing** | ✏️ on your message or ↑ in an empty composer; edited messages are marked. Optional time window. |
+| **Reactions** | Six emoji, one per person per message. |
+| **Read receipts** | ✓ sent, ✓✓ read — in a group, read by every active member (the hint lists who has not). |
+| **Record references** | Attach a record with a picker, by dropping a link to its page, or "Attach current" in the slide-over. |
+| **Where** | A full **Chat** page and a **top-bar button** with a slide-over; on wide screens the slide-over can be **pinned** as a split screen that stays open across pages. |
+| **Unread** | Counters in the navigation, on the button, in the browser tab title and on the favicon; a bell notification on the first unread message of a conversation and on every mention; a "Reply" toast. |
+| **Privacy** | A conversation is visible to its members only — admins included. Messages are never deleted. |
+| **Languages** | English and Ukrainian. |
+
+Every feature can be switched off.
 
 ## Requirements
 
@@ -29,14 +47,15 @@ panel's records — drag a record link into the chat and it becomes a card.
 
 ```bash
 composer require asignua/filament-chat
-php artisan vendor:publish --tag=filament-chat-migrations
-php artisan migrate
+php artisan filament-chat:install --migrate
 ```
 
-The bell notifications use Laravel's `notifications` table — create it if your app does not have
-it yet (`php artisan make:notifications-table`).
+`filament-chat:install` publishes `config/filament-chat.php` and the migration (4 tables), runs the
+migrations with `--migrate`, links the [agent skill](#ai-agents) with `--skill` and tells you what
+is left. Bell notifications use Laravel's `notifications` table — `php artisan make:notifications-table`
+if your app does not have it yet.
 
-Register the plugin in your panel:
+Register the plugin in your panel provider:
 
 ```php
 use Asignua\FilamentChat\FilamentChatPlugin;
@@ -50,42 +69,81 @@ public function panel(Panel $panel): Panel
 }
 ```
 
-That's it: a **Chat** page appears in the navigation and a chat button next to the user menu.
-The stylesheet is registered as a Filament asset — no custom theme needed. If you deploy with
-`php artisan filament:assets`, run it after installing or upgrading the package.
+That's it: a **Chat** page in the navigation and a chat button next to the user menu. The chat
+polls for news until you turn [real-time](#real-time-delivery) on.
+
+The stylesheet ships compiled and is linked **after** your panel's theme — no custom theme and no
+`@source` lines are needed. It is published by `php artisan filament:assets`; if you commit
+published assets, re-run it after upgrading the package.
 
 ## Configuration
 
-### Who can be written to
+Every setting lives in `config/filament-chat.php` (commented — read it once) and can also be set on
+the plugin, which wins. Closures — who can be written to, how people are called, per-type rules for
+references — exist on the plugin only, so the config stays cacheable.
 
-By default everybody in the users table. Narrow it down with a query:
-
-```php
-FilamentChatPlugin::make()
-    ->users(fn (Builder $query) => $query->where('is_active', true)),
-```
-
-### Names
-
-The chat calls people by Filament's `HasName::getFilamentName()`, then by the `name` attribute.
-Override it:
+### Users
 
 ```php
 FilamentChatPlugin::make()
+    // Who can be written to and added to groups. Default: everybody in the users table.
+    ->users(fn (Builder $query) => $query->where('is_active', true)->whereHas('roles'))
+    // How a person is called. Default: users.name_attribute, then Filament's HasName, then `name`.
     ->userName(fn (User $user): string => "{$user->first_name} {$user->last_name}"),
 ```
 
-…and tell the conversation search which columns to look in (`config/filament-chat.php`):
-
 ```php
+// config/filament-chat.php
 'users' => [
-    'search_columns' => ['first_name', 'last_name'],
+    'model' => null,                    // null = auth.providers.users.model
+    'name_attribute' => null,           // e.g. 'full_name' — an attribute or accessor
+    'search_columns' => ['name'],       // e.g. ['first_name', 'last_name'] — the conversation search
+    'broadcast_key' => null,            // e.g. 'ulid' — names the private channel (default: the primary key)
 ],
 ```
 
-### Record references
+### Features
 
-Register the resources whose records a message may point at:
+| Key | Plugin | Default | Off means |
+|---|---|---|---|
+| `features.groups` | `->groups(false)` | `true` | direct messages only; "New group" disappears, the server refuses groups |
+| `features.reactions` | `->reactions(false)` | `true` | no emoji picker or chips; the server refuses reactions |
+| `features.mentions` | `->mentions(false)` | `true` | no `@` autocomplete, nothing highlighted or notified |
+| `features.read_receipts` | `->readReceipts(false)` | `true` | no ✓ / ✓✓ |
+| `features.editing.enabled` / `.window` | `->editing(true, 15)` | `true`, `null` | no editing; `window` — minutes after sending, `null` — any time |
+
+Switching a feature off never deletes data.
+
+### Messages
+
+```php
+'messages' => [
+    'page_size' => 30,      // loaded at once and per "Show earlier messages"
+    'max_length' => 5000,
+],
+```
+
+### Interface
+
+| Key | Plugin | Default |
+|---|---|---|
+| `ui.dock` | `->dock(false)` | `true` — the top-bar button and slide-over; off: the Chat page only |
+| `ui.pinnable` | `->pinnable(false)` | `true` — "pin" the slide-over as a split screen (from `lg`) |
+| `ui.tab_badge` | `->tabBadge(false)` | `true` — unread count in the tab title and on the favicon |
+| `ui.color` | `->color('fuchsia')` | `primary` — group avatars and author names |
+| `ui.slug` | `->slug('messages')` | `chat` |
+| `ui.navigation.group` / `.sort` / `.icon` | `->navigationGroup()` / `->navigationSort()` / `->navigationIcon()` | `null` / `90` / chat bubbles |
+
+`->navigationGroup()` and `->navigationIcon()` also accept enums and closures (translated group names).
+
+## Record references
+
+A message may point at a record of your panel — an order, a customer, a page. It shows as a card
+with the record's icon, type and title, linking to its page.
+
+### Which records
+
+Register resources on the plugin:
 
 ```php
 use Asignua\FilamentChat\Support\References\ReferenceType;
@@ -97,9 +155,9 @@ FilamentChatPlugin::make()
     ]),
 ```
 
-From the resource the chat takes the label, icon, record title, the link (edit page for those who
-may edit, view page for the rest) and the search for the picker (globally searchable attributes).
-Everything can be overridden:
+From the resource the chat takes the label, icon, record title, the link (the edit page for those who
+may edit, the view page for the rest) and the search of the picker (the globally searchable
+attributes). Everything can be overridden:
 
 ```php
 ReferenceType::make('invoice', Invoice::class)
@@ -108,13 +166,64 @@ ReferenceType::make('invoice', Invoice::class)
     ->color('success')
     ->title(fn (Invoice $invoice): string => $invoice->number)
     ->url(fn (Invoice $invoice): ?string => InvoiceResource::getUrl('view', ['record' => $invoice]))
-    ->search(fn (string $search) => Invoice::where('number', 'like', "%{$search}%")->limit(20)->get()),
+    ->search(fn (string $search) => Invoice::where('number', 'like', "%{$search}%")->limit(20)->get())
+    ->searchColumns(['number', 'customer_name'])   // instead of ->search()
+    ->visibleUsing(fn (Invoice $invoice): bool => auth()->user()->can('view', $invoice)),
 ```
 
-The key (`order`, `invoice`) is what is stored with the message — keep it stable. A reference
-respects your policies: a viewer without `view` rights sees the type but neither the title nor the link.
+The key (`invoice`; `order` for `ReferenceType::resource(OrderResource::class)`) is stored with the
+message — keep it stable.
 
-Add **Discuss in chat** to a record page:
+**Or every resource at once** — no list to maintain:
+
+```php
+// config/filament-chat.php
+'references' => [
+    'all_resources' => true,
+    'except' => [ActivityLogResource::class, VisitorResource::class],
+],
+
+// or on the plugin
+->references([
+    ReferenceType::allResources()->except([ActivityLogResource::class]),
+    ReferenceType::resource(OrderResource::class)->color('warning'), // explicit types win
+]),
+```
+
+With "all resources" the key is the resource **slug** (`orders`, `activity-log/activity-logs`):
+renaming a slug loses the link of old messages (they show "record deleted"). Register a type
+explicitly where that matters.
+
+`'references' => ['enabled' => false]` turns references off completely.
+
+### Who sees a referenced record
+
+A viewer who may not see the record gets its type only — no title, no link — and cannot attach it.
+"May see" is `references.authorize` (or `->authorizeReferences()` on the plugin):
+
+| Value | Rule | A model **without a policy** |
+|---|---|---|
+| `'policy'` (default) | the model's `view` policy | **hidden** |
+| `'resource'` | the resource's `canView()` — Filament's own rule | visible to everyone in the panel |
+| `false` | no check | visible |
+
+> **Watch out.** Filament shows a resource whose model has no policy, but Laravel's `Gate` denies an
+> ability nobody defined. With the default `'policy'`, records of such a resource are visible in
+> the panel yet can never be attached — dropping a link says so. Either add a policy (`view` →
+> `true` for a read-only resource) or switch to `'resource'`. A type's `->visibleUsing()` beats both.
+
+### Attaching
+
+- **Picker** — the 🔗 button next to the composer: type, then search.
+- **Drag & drop** — drop any link to a record page into an open conversation: a table row, a link
+  in a column, a global search result, the address bar. Links of resources that are not referenceable
+  say so ("Orders cannot be attached to messages").
+- **Attach current** — the slide-over opened on a record page offers that record in one click.
+
+### Discuss in chat
+
+A header action for record pages — to whom (a person or a group I am in) and the text; the record
+is attached:
 
 ```php
 use Asignua\FilamentChat\Actions\DiscussInChatAction;
@@ -125,84 +234,184 @@ protected function getHeaderActions(): array
 }
 ```
 
-### The dock
+It shows only for records of a referenceable type; it works as a table row action too.
 
-```php
-FilamentChatPlugin::make()
-    ->dock(false)          // no top-bar button and slide-over — only the Chat page
-    ->pinnable(false)      // no "pin" (split screen)
-    ->tabBadge(false)      // no unread count in the tab title / favicon
-    ->color('fuchsia')     // accent of group avatars and author names
-    ->navigationGroup('Work')
-    ->navigationSort(10)
-    ->slug('messages'),
+## Real-time delivery
+
+The chat works both ways — pick per environment:
+
+| `FILAMENT_CHAT_REALTIME` | Behaviour |
+|---|---|
+| `false` | polling: an open conversation every 15 s, the unread counter every 60 s (`polling.*`) |
+| `true` | new messages, reads, reactions and group changes arrive instantly; toasts appear on any page |
+| unset (`null`) | on when the default broadcaster is `reverb`, `pusher` or `ably` |
+
+Events carry identifiers only; the components re-read the data, so policies — not the socket
+payload — decide what anyone sees. Each person listens on a private channel
+`filament-chat.user.{key}`, authorised by the package. Events are broadcast immediately
+(`ShouldBroadcastNow`) — no queue worker needed; if the socket is down the message is still saved
+and the counters catch up by polling.
+
+### Laravel Reverb
+
+```bash
+php artisan install:broadcasting --reverb
 ```
 
-### Real-time delivery
-
-Without a websocket the chat polls (every 15 s for an open conversation, 60 s for the counter).
-For instant delivery:
-
-1. Set up broadcasting — e.g. [Laravel Reverb](https://laravel.com/docs/reverb):
-   `php artisan install:broadcasting --reverb`.
-2. Give Filament an Echo configuration (`config/filament.php`, publish it with
-   `php artisan vendor:publish --tag=filament-config`):
-
-   ```php
-   'broadcasting' => [
-       'echo' => [
-           'broadcaster' => 'reverb',
-           'key' => env('VITE_REVERB_APP_KEY'),
-           'wsHost' => env('VITE_REVERB_HOST'),
-           'wsPort' => env('VITE_REVERB_PORT'),
-           'wssPort' => env('VITE_REVERB_PORT'),
-           'forceTLS' => env('VITE_REVERB_SCHEME', 'https') === 'https',
-           'enabledTransports' => ['ws', 'wss'],
-           'authEndpoint' => '/broadcasting/auth',
-       ],
-   ],
-   ```
-
-   Any other way of putting `window.Echo` on the page works too.
-
-Real-time is on automatically when the default broadcaster is `reverb`, `pusher` or `ably`
-(`'realtime' => true|false` in the config forces it). Events go to the private channel
-`filament-chat.user.{key}` — the package authorises it. By default the key is the user's primary key;
-set `users.broadcast_key` to a public column (a ULID or UUID) if you prefer not to expose ids to
-the websocket server. The event is broadcast immediately (`ShouldBroadcastNow`), no queue worker needed.
-
-### Editing
-
-```php
-// config/filament-chat.php
-'editing' => [
-    'enabled' => true,
-    'window' => 15, // minutes after sending; null — any time
-],
+```dotenv
+BROADCAST_CONNECTION=reverb
+FILAMENT_CHAT_REALTIME=true
 ```
 
-Only the author edits, and only while still in the conversation. People newly mentioned by an edit
-are notified; the text change itself reaches the others silently (the message shows "edited").
+```bash
+php artisan reverb:start
+```
+
+That is all: by default (`realtime.echo = 'plugin'`) the plugin brings Laravel Echo itself — it
+reuses the Echo that Filament already ships — configured from the broadcasting connection. It also
+registers `/broadcasting/auth` if your app has not (`realtime.register_auth_route`).
+
+**Where the browser connects.** PHP publishes to `REVERB_HOST:REVERB_PORT`; the browser connects to
+the page's own host, protocol and default port unless told otherwise:
+
+```dotenv
+FILAMENT_CHAT_WS_HOST=ws.example.com   # empty = the page's host
+FILAMENT_CHAT_WS_PORT=8080             # empty = 443 on https, 80 on http
+FILAMENT_CHAT_WS_SCHEME=https          # empty = the page's protocol
+```
+
+- **Local, no Docker:** `reverb:start` on 8080 → `FILAMENT_CHAT_WS_PORT=8080`.
+- **Docker / Sail:** PHP publishes to the service (`REVERB_HOST=reverb`, `REVERB_PORT=8080`), the
+  browser to the published port (`FILAMENT_CHAT_WS_PORT=8080` or whatever you map).
+- **Production behind nginx:** proxy the websocket on the same host and leave the three variables
+  empty:
+
+  ```nginx
+  location ^~ /app/ {
+      proxy_pass http://reverb:8080;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      proxy_set_header Host $host;
+      proxy_read_timeout 60s;
+  }
+  ```
+
+### Pusher / Ably / another connection
+
+Any Pusher-compatible connection works the same way (`BROADCAST_CONNECTION=pusher`). Pusher Channels
+(cloud) is addressed by its cluster from `broadcasting.connections.pusher.options.cluster`.
+To publish chat events on a connection other than the app's default:
+`FILAMENT_CHAT_BROADCAST_CONNECTION=reverb`.
+
+### Your own Echo
+
+If your app already loads `window.Echo` (a Vite bundle), or you configured Filament's
+`filament.broadcasting.echo`, set `FILAMENT_CHAT_ECHO=host` or `=filament` — the plugin then only
+subscribes. An existing `window.Echo` is never replaced.
+
+## Notifications
+
+| Key | Default | |
+|---|---|---|
+| `notifications.database` | `true` | the bell: the first unread message of a conversation (the rest only grow the counter) and every mention. Needs `->databaseNotifications()`, the `notifications` table and `Notifiable` on the user model. |
+| `notifications.toasts` | `true` | a "Reply" toast for a message in another conversation (real-time only) |
+
+## Customising
 
 ### Your own models and tables
 
-Every model can be swapped for a subclass (say, to add activity logging) and every table renamed in
-`config/filament-chat.php` — publish it with `php artisan vendor:publish --tag=filament-chat-config`.
-`Asignua\FilamentChat\Events\GroupMembersChanged` is fired whenever group membership changes, with
-the member names before and after — handy for an audit trail.
+Swap any model for a subclass and rename the tables **before** running the migration:
 
-## Notes
+```php
+'models' => [
+    'conversation' => App\Models\ChatConversation::class, // extends Asignua\FilamentChat\Models\Conversation
+    // participant, message, reaction
+],
+'tables' => [
+    'conversations' => 'chat_conversations',
+    // participants, messages, reactions
+],
+```
 
-- Messages and conversations are never deleted.
-- Mentions are recognised by the members' names (`@Olga Green`), so a mention typed by hand works too.
-- Whoever leaves a group keeps the history up to that moment and can no longer write.
-- Conversation and record search uses `LIKE`: case-insensitive on MySQL/MariaDB and PostgreSQL;
-  on SQLite only for ASCII letters.
+### An audit trail
+
+Messages, reactions and read pointers are deliberately not audited — an audit feed would let admins
+read other people's conversations. For conversations use a subclass with your logging trait, and
+listen to `Asignua\FilamentChat\Events\GroupMembersChanged` (`$conversation`, `$before`, `$after` —
+member names) for membership, which lives in a pivot the model diff cannot see.
+
+### Events
+
+| Event | When |
+|---|---|
+| `Asignua\FilamentChat\Events\ChatUpdated` | anything changed in a conversation — broadcast to members |
+| `Asignua\FilamentChat\Events\GroupMembersChanged` | a group was created, its members changed, someone left |
+
+### Writing from your code
+
+```php
+use Asignua\FilamentChat\Data\MessageData;
+use Asignua\FilamentChat\Services\ChatService;
+
+$chat = app(ChatService::class);
+$conversation = $chat->startDirect($me, $colleague);
+$chat->send($conversation, $me, MessageData::fromArray([
+    'body' => 'Please check @Olga Green',
+    'reference_type' => 'order',
+    'reference_id' => $order->id,
+]));
+```
+
+Always go through `ChatService` — it checks membership, stores mentions, broadcasts and notifies.
+
+## Integration notes
+
+- **Custom themes.** The stylesheet is linked after the panel's theme on purpose: a theme compiles the
+  same Tailwind utilities (`.bg-white`) and, loaded later, would beat the chat's `dark:` variants.
+- **A panel built by a package** (a CMS that owns its `PanelProvider`): add the plugin when the panel
+  registers — `boot()` is too late, the panel's routes already exist:
+
+  ```php
+  // AppServiceProvider::register()
+  $this->app->resolving(PanelRegistry::class, function (PanelRegistry $registry): void {
+      $registry->get('cms', isStrict: false)?->plugin(FilamentChatPlugin::make());
+  });
+  ```
+
+- **Several panels.** Register the plugin on one panel. Links in notifications lead to that panel.
+- **Users of another panel** (customers in a client cabinet): narrow `->users()` to the people of
+  the chat's panel.
+- **Search** uses `LIKE`: case-insensitive on MySQL/MariaDB and PostgreSQL; on SQLite for ASCII only.
+
+## Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| "… cannot be attached to messages" on a drop | the resource is not referenceable — register it or use `all_resources` |
+| "This link does not lead to a record…" | not a record page of this panel (a list, another host) |
+| A record shows its type but "no access" | `references.authorize = 'policy'` and the model has no policy — see [Who sees](#who-sees-a-referenced-record) |
+| The slide-over is white on a dark panel | stale published assets — `php artisan filament:assets` |
+| "Laravel Echo cannot be found" in the console | real-time is on but no Echo: `realtime.echo` is `host`/`filament` without one, or `window.EchoFactory` is missing (Filament's core scripts) |
+| Messages arrive only after ~15 s | real-time is off (`FILAMENT_CHAT_REALTIME`), or the socket is not reachable from the browser — check `FILAMENT_CHAT_WS_*` and the browser's network tab |
+| 403 on `/broadcasting/auth` | the user is not logged in on the `web` guard, or `broadcast_key` differs between server and channel |
+| No bell notifications | `->databaseNotifications()` on the panel, the `notifications` table, `Notifiable` on the user |
+
+## AI agents
+
+The package ships a skill for coding agents (Claude Code and others reading `.claude/skills`) —
+installation, every option, record references, real-time setups and the traps above:
+
+```bash
+php artisan filament-chat:install --skill   # links .claude/skills/filament-chat
+```
+
+It lives in `resources/boost/skills/filament-chat/SKILL.md`, where Laravel Boost looks for package skills.
 
 ## Testing
 
 ```bash
-composer test      # PHPUnit
+composer test      # PHPUnit (Orchestra Testbench)
 composer analyse   # Larastan
 composer format    # Pint
 npm run build      # rebuild resources/dist/filament-chat.css after changing views

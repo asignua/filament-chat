@@ -7,6 +7,7 @@ namespace Asignua\FilamentChat\Pages;
 use Asignua\FilamentChat\FilamentChatPlugin;
 use Asignua\FilamentChat\Models\Conversation;
 use Asignua\FilamentChat\Repositories\ConversationRepository;
+use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\ChatUsers;
 use BackedEnum;
@@ -26,8 +27,6 @@ class Chat extends Page
 
     protected string $view = 'filament-chat::pages.chat';
 
-    protected static ?int $navigationSort = 90;
-
     public static function icon(): string|BackedEnum
     {
         return Heroicon::OutlinedChatBubbleLeftRight;
@@ -35,7 +34,7 @@ class Chat extends Page
 
     public static function getSlug(?Panel $panel = null): string
     {
-        return self::plugin()?->getSlug() ?? 'chat';
+        return ChatConfig::slug();
     }
 
     public static function getNavigationIcon(): string|BackedEnum|null
@@ -45,12 +44,12 @@ class Chat extends Page
 
     public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return self::plugin()?->getNavigationGroup();
+        return self::plugin()?->getNavigationGroup() ?? ChatConfig::navigationGroup();
     }
 
     public static function getNavigationSort(): ?int
     {
-        return self::plugin()?->getNavigationSort() ?? static::$navigationSort;
+        return ChatConfig::navigationSort();
     }
 
     public static function getNavigationLabel(): string

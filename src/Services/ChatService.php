@@ -118,7 +118,7 @@ class ChatService
      */
     private function mentionsIn(Conversation $conversation, Model $author, string $body): array
     {
-        if (!str_contains($body, '@')) {
+        if (!ChatConfig::mentions() || !str_contains($body, '@')) {
             return [];
         }
 
@@ -156,6 +156,10 @@ class ChatService
 
     public function createGroup(GroupData $data, Model $creator): Conversation
     {
+        if (!ChatConfig::groups()) {
+            throw new InvalidArgumentException(__('filament-chat::chat.error_groups_off'));
+        }
+
         $conversation = $this->conversations->createGroup($data, $creator);
 
         $this->broadcast($conversation, $this->conversations->activeMemberKeys($conversation));
@@ -188,6 +192,10 @@ class ChatService
      */
     public function react(Conversation $conversation, Message $message, Model $user, Reaction $reaction): ?Reaction
     {
+        if (!ChatConfig::reactions()) {
+            throw new InvalidArgumentException(__('filament-chat::chat.error_reactions_off'));
+        }
+
         if ($message->conversation_id !== $conversation->id
             || !($this->conversations->participant($conversation, $user)?->isActive() ?? false)) {
             throw new InvalidArgumentException(__('filament-chat::chat.error_not_member'));

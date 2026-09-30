@@ -9,11 +9,15 @@ use Asignua\FilamentChat\Livewire\ChatWindow;
 use Asignua\FilamentChat\Models\Message;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\References\RecordUrlResolver;
+use Asignua\FilamentChat\Support\References\ReferenceRegistry;
+use Asignua\FilamentChat\Support\References\ReferenceType;
 use Asignua\FilamentChat\Tests\TestCase;
 use Livewire\Livewire;
 use Workbench\App\Filament\Resources\Notes\NoteResource;
 use Workbench\App\Filament\Resources\Notes\Pages\EditNote;
+use Workbench\App\Filament\Resources\Users\UserResource;
 use Workbench\App\Models\Note;
+use Workbench\App\Models\User;
 
 class ReferencesTest extends TestCase
 {
@@ -162,5 +166,84 @@ class ReferencesTest extends TestCase
             ->assertHasActionErrors(['to']);
 
         $this->assertSame(0, Message::query()->count());
+    }
+
+    public function test_reference_authorization_modes(): void
+    {
+        $this->actingAs($this->user());
+        $note = Note::query()->create(['title' => 'Plan']);
+        $secret = Note::query()->create(['title' => 'Secret', 'owner_id' => 999]);
+        $free = ReferenceType::make('person', User::class);
+        $colleague = $this->user();
+        $viaResource = app(ChatManager::class)->references->get('note');
+        $this->assertNotNull($viaResource);
+
+        // 'policy' (default): the policy decides, and a model without one is hidden.
+        $this->assertTrue($viaResource->canView($note));
+        $this->assertFalse($viaResource->canView($secret));
+        $this->assertFalse($free->canView($colleague));
+
+        // 'resource': Filament's rule — the resource asks the policy, a model without one is visible.
+        config(['filament-chat.references.authorize' => 'resource']);
+        $this->assertFalse($viaResource->canView($secret));
+        $this->assertTrue($free->canView($colleague));
+
+        // false: no check.
+        config(['filament-chat.references.authorize' => false]);
+        $this->assertTrue($viaResource->canView($secret));
+
+        // A type's own rule wins over the config.
+        $this->assertFalse(ReferenceType::make('none', Note::class)->visibleUsing(fn (): bool => false)->canView($note));
+    }
+
+    public function test_a_page_of_an_unregistered_resource_names_its_type(): void
+    {
+        $me = $this->user();
+        $conversation = $this->direct($me, $this->user());
+        $this->actingAs($me);
+
+        $url = UserResource::getUrl('edit', ['record' => $me]);
+
+        $this->assertNull(RecordUrlResolver::resolve($url));
+        $this->assertSame('Users', RecordUrlResolver::unsupportedResourceLabel($url));
+        $this->assertNull(RecordUrlResolver::unsupportedResourceLabel('/admin/notes/1/edit'));
+
+        Livewire::test(ChatWindow::class)
+            ->call('open', $conversation->ulid)
+            ->call('attachUrl', $url)
+            ->assertNotified(__('filament-chat::chat.drop_not_allowed', ['type' => 'Users']));
+    }
+
+    public function test_all_resources_mode_from_the_config(): void
+    {
+        // The workbench User has no policy: 'resource' (Filament's rule) lets it be seen.
+        config(['filament-chat.references.all_resources' => true, 'filament-chat.references.authorize' => 'resource']);
+        $me = $this->user(['name' => 'Olga']);
+        $this->actingAs($me);
+        $registry = new ReferenceRegistry;
+        $registry->register(ReferenceType::resource(NoteResource::class)->color('warning'));
+
+        // The explicit Note type stays as it is; users come from the panel, keyed by slug.
+        $this->assertSame(['note', 'users'], array_keys($registry->all()));
+        $this->assertSame('warning', $registry->get('note')?->getColor());
+        $this->assertSame(['type' => 'users', 'id' => $me->id], $this->resolveWith($registry, UserResource::getUrl('edit', ['record' => $me])));
+
+        config(['filament-chat.references.except' => [UserResource::class]]);
+        $fresh = new ReferenceRegistry;
+        $fresh->register(ReferenceType::allResources()->except([NoteResource::class]));
+
+        $this->assertSame([], $fresh->all());
+    }
+
+    /**
+     * @return array{type: string, id: int}|null
+     */
+    private function resolveWith(ReferenceRegistry $registry, string $url): ?array
+    {
+        $manager = app(ChatManager::class);
+        $this->app->instance(ChatManager::class, new ChatManager($registry));
+        app(ChatManager::class)->panelId = $manager->panelId;
+
+        return RecordUrlResolver::resolve($url);
     }
 }

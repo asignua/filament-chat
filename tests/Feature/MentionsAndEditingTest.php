@@ -92,16 +92,16 @@ class MentionsAndEditingTest extends TestCase
         $this->assertTrue(Gate::forUser($me)->allows('update', $mine));
         $this->assertFalse(Gate::forUser($colleague)->allows('update', $mine));
 
-        config(['filament-chat.editing.window' => 5]);
+        config(['filament-chat.features.editing.window' => 5]);
         $this->travel(6)->minutes();
         $this->assertFalse(Gate::forUser($me)->allows('update', $mine));
 
-        config(['filament-chat.editing.window' => null]);
+        config(['filament-chat.features.editing.window' => null]);
         $this->assertTrue(Gate::forUser($me)->allows('update', $mine));
 
-        config(['filament-chat.editing.enabled' => false]);
+        config(['filament-chat.features.editing.enabled' => false]);
         $this->assertFalse(Gate::forUser($me)->allows('update', $mine));
-        config(['filament-chat.editing.enabled' => true]);
+        config(['filament-chat.features.editing.enabled' => true]);
 
         app(ChatService::class)->leave($group, $me);
         $this->assertFalse(Gate::forUser($me)->allows('update', $mine));

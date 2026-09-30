@@ -101,7 +101,7 @@ class ChatDock extends Component
      */
     public function onChatUpdated(array $payload): void
     {
-        if ($this->quiet) {
+        if ($this->quiet || !ChatConfig::toasts()) {
             return;
         }
 

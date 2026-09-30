@@ -55,7 +55,7 @@ class ChatServiceTest extends TestCase
         } catch (InvalidArgumentException) {
         }
 
-        config(['filament-chat.max_length' => 5]);
+        config(['filament-chat.messages.max_length' => 5]);
 
         $this->expectException(InvalidArgumentException::class);
 
@@ -101,7 +101,7 @@ class ChatServiceTest extends TestCase
 
     public function test_no_event_without_realtime(): void
     {
-        config(['filament-chat.realtime' => false]);
+        config(['filament-chat.realtime.enabled' => false]);
         $me = $this->user();
         $conversation = $this->direct($me, $this->user());
 
@@ -128,7 +128,7 @@ class ChatServiceTest extends TestCase
     public function test_bell_can_be_turned_off(): void
     {
         Notification::fake();
-        config(['filament-chat.database_notifications' => false]);
+        config(['filament-chat.notifications.database' => false]);
         $me = $this->user();
         $colleague = $this->user();
 
