@@ -11,6 +11,7 @@ use BackedEnum;
 use Closure;
 use Filament\Contracts\Plugin;
 use Filament\Panel;
+use Filament\Support\Facades\FilamentAsset;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -223,6 +224,11 @@ class FilamentChatPlugin implements Plugin
         }
 
         $panel
+            // After the panel's theme, not before it as auto-loaded plugin assets are: a
+            // custom theme compiles the same utilities (`.bg-white`), and with equal
+            // specificity the later file wins — the theme would beat our `dark:` variants.
+            ->renderHook(PanelsRenderHook::STYLES_AFTER, fn (): string => '<link rel="stylesheet" href="'
+                .e(FilamentAsset::getStyleHref(FilamentChatServiceProvider::STYLESHEET, FilamentChatServiceProvider::PACKAGE)).'" />')
             ->renderHook(PanelsRenderHook::HEAD_START, fn (): string => $this->dock && $this->pinnable ? view('filament-chat::hooks.pinned')->render() : '')
             ->renderHook(PanelsRenderHook::HEAD_END, fn (): string => $this->tabBadge ? view('filament-chat::hooks.tab-badge')->render() : '')
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn (): string => view('filament-chat::hooks.dock-button', ['dock' => $this->dock])->render())

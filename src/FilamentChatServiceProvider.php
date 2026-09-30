@@ -29,6 +29,10 @@ class FilamentChatServiceProvider extends PackageServiceProvider
 {
     public static string $name = 'filament-chat';
 
+    public const string PACKAGE = 'asignua/filament-chat';
+
+    public const string STYLESHEET = 'filament-chat';
+
     public function configurePackage(Package $package): void
     {
         $package
@@ -50,9 +54,11 @@ class FilamentChatServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        // Published by `filament:assets`, but linked by the plugin itself after the panel's
+        // theme (FilamentChatPlugin::register) — see the note there.
         FilamentAsset::register([
-            Css::make('filament-chat', __DIR__.'/../resources/dist/filament-chat.css'),
-        ], 'asignua/filament-chat');
+            Css::make(self::STYLESHEET, __DIR__.'/../resources/dist/filament-chat.css')->loadedOnRequest(),
+        ], self::PACKAGE);
 
         Livewire::component('filament-chat.chat-window', ChatWindow::class);
         Livewire::component('filament-chat.chat-dock', ChatDock::class);

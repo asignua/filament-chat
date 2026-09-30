@@ -7,7 +7,8 @@
  * already ships it. Only the utilities used by the chat views end up here.
  */
 /*
- * Filament registers plugin stylesheets BEFORE its own app.css. Without this line the
+ * The plugin links this file after the panel's styles (STYLES_AFTER), but a host may
+ * still load CSS later on. Without this line the
  * `utilities` layer would be declared first and Filament's `base` (preflight: padding 0,
  * border 0) would win over every chat utility. Declaring the order keeps utilities last.
  */
