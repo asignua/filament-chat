@@ -11,7 +11,6 @@ use Asignua\FilamentChat\Support\ChatUsers;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification as PanelNotification;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Str;
 
 /**
  * "Someone wrote to you" — the panel bell. Sent only for the first unread
@@ -39,7 +38,7 @@ class NewMessageNotification extends Notification
     {
         return PanelNotification::make()
             ->title(self::title($this->conversation, $this->message))
-            ->body(Str::limit($this->message->body, 140))
+            ->body($this->message->preview())
             ->icon(Chat::icon())
             ->actions([
                 Action::make('open')

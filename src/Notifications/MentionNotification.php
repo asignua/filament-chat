@@ -11,7 +11,6 @@ use Asignua\FilamentChat\Support\ChatUsers;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification as PanelNotification;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Str;
 
 /**
  * "Someone mentioned you" — the bell rings for every mention, not only the
@@ -39,7 +38,7 @@ class MentionNotification extends Notification
     {
         return PanelNotification::make()
             ->title(self::title($this->conversation, $this->message))
-            ->body(Str::limit($this->message->body, 140))
+            ->body($this->message->preview())
             ->icon('heroicon-o-at-symbol')
             ->actions([
                 Action::make('open')

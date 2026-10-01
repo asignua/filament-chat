@@ -246,4 +246,73 @@ class ReferencesTest extends TestCase
 
         return RecordUrlResolver::resolve($url);
     }
+
+    public function test_drag_and_drop_is_offered_only_when_something_can_be_attached(): void
+    {
+        $me = $this->user();
+        $conversation = $this->direct($me, $this->user());
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)
+            ->call('open', $conversation->ulid)
+            ->assertSeeHtml('wire:key="fchat-drop-overlay"');
+
+        config(['filament-chat.references.enabled' => false]);
+
+        Livewire::test(ChatWindow::class)
+            ->call('open', $conversation->ulid)
+            ->assertDontSeeHtml('wire:key="fchat-drop-overlay"')
+            ->assertDontSeeHtml('x-on:drop.prevent');
+    }
+
+    public function test_a_resource_without_a_title_attribute_falls_back_to_the_records_name(): void
+    {
+        $this->actingAs($this->user());
+        $olga = $this->user(['name' => 'Olga Green']);
+
+        $this->assertSame('Olga Green', ReferenceType::resource(UserResource::class)->getTitle($olga));
+        $this->assertSame('Plan', ReferenceType::resource(NoteResource::class)->getTitle(Note::query()->create(['title' => 'Plan'])));
+    }
+
+    public function test_a_record_alone_is_a_message(): void
+    {
+        $me = $this->user();
+        $conversation = $this->direct($me, $this->user());
+        $note = Note::query()->create(['title' => 'Budget']);
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)
+            ->call('open', $conversation->ulid)
+            ->call('attach', 'note', $note->id)
+            ->call('send')
+            ->assertDispatched(ChatWindow::EVENT_SENT)
+            ->assertSee('Budget');
+
+        $message = Message::query()->sole();
+        $this->assertSame('', $message->body);
+        $this->assertSame('📎 Note', $message->preview());
+
+        // Without a record an empty message is still refused, also on edit.
+        Livewire::test(ChatWindow::class)
+            ->call('open', $conversation->ulid)
+            ->call('send')
+            ->assertNotified(__('filament-chat::chat.error_empty'));
+
+        $text = $this->send($conversation, $me, 'text');
+        $this->expectException(\InvalidArgumentException::class);
+        app(\Asignua\FilamentChat\Services\ChatService::class)->edit($conversation, $text, $me, '  ');
+    }
+
+    public function test_discuss_in_chat_without_text(): void
+    {
+        $me = $this->user();
+        $colleague = $this->user();
+        $note = Note::query()->create(['title' => 'Offer']);
+        $this->actingAs($me);
+
+        Livewire::test(EditNote::class, ['record' => $note->getRouteKey()])
+            ->callAction(DiscussInChatAction::class, ['to' => 'user:'.$colleague->id]);
+
+        $this->assertSame($note->id, Message::query()->sole()->reference_id);
+    }
 }

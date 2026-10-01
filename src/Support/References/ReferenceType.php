@@ -7,6 +7,7 @@ namespace Asignua\FilamentChat\Support\References;
 use Asignua\FilamentChat\Support\ChatConfig;
 use BackedEnum;
 use Closure;
+use Filament\Models\Contracts\HasName;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
@@ -234,7 +235,10 @@ final class ReferenceType
     {
         $title = match (true) {
             $this->title !== null => ($this->title)($record),
-            $this->resource !== null => $this->resource::getRecordTitle($record),
+            // A resource without $recordTitleAttribute titles every record with its model label
+            // ("user") — useless on a card, so fall back to the record's own name.
+            $this->resource !== null && $this->resource::getRecordTitleAttribute() !== null => $this->resource::getRecordTitle($record),
+            $record instanceof HasName => $record->getFilamentName(),
             default => $record->getAttribute('title') ?? $record->getAttribute('name'),
         };
 

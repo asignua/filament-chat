@@ -15,7 +15,6 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Renderless;
@@ -129,7 +128,7 @@ class ChatDock extends Component
 
         Notification::make()
             ->title(NewMessageNotification::title($conversation, $message))
-            ->body(Str::limit($message->body, 140))
+            ->body($message->preview())
             ->icon(Chat::icon())
             ->actions([
                 Action::make('reply')

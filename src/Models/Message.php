@@ -6,10 +6,12 @@ namespace Asignua\FilamentChat\Models;
 
 use Asignua\FilamentChat\Concerns\HasPublicUlid;
 use Asignua\FilamentChat\Support\ChatConfig;
+use Asignua\FilamentChat\Support\ChatManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * A chat message; may point at a record of the panel (`reference_type` is a
@@ -57,6 +59,21 @@ class Message extends Model
     public function mentionIds(): array
     {
         return array_map(intval(...), $this->mentions ?? []);
+    }
+
+    /**
+     * One line for lists, toasts and the bell: the text, or — for a message that is just a
+     * reference — "📎 Tour". Only the type: the recipient may not be allowed to see the record.
+     */
+    public function preview(int $limit = 140): string
+    {
+        if (trim($this->body) !== '') {
+            return Str::limit($this->body, $limit);
+        }
+
+        $type = app(ChatManager::class)->references->get($this->reference_type);
+
+        return '📎 '.($type?->getLabel() ?? __('filament-chat::chat.attachment'));
     }
 
     public function isEdited(): bool

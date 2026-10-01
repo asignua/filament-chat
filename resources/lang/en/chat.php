@@ -32,6 +32,7 @@ return [
     'unknown_user' => 'Unknown user',
     'load_older' => 'Show earlier messages',
     'attach_record' => 'Attach a record',
+    'attachment' => 'Attachment',
     'attach' => 'Attach',
     'detach' => 'Remove attachment',
     'reference_type' => 'Type',

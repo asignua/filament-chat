@@ -102,7 +102,7 @@
                                         @if ($item->isGroup() && $last->author)
                                             {{ $last->author->is($me) ? __('filament-chat::chat.you') : ChatUsers::name($last->author) }}:
                                         @endif
-                                        {{ $last->body }}
+                                        {{ $last->preview(80) }}
                                     @else
                                         {{ __('filament-chat::chat.no_messages') }}
                                     @endif
@@ -136,7 +136,8 @@
             'hidden' => $compact && !$current,
             'max-md:hidden' => !$compact && !$current,
         ])
-        @if ($canSend)
+        {{-- Drag & drop only when there is something to attach: otherwise every drop would just say "no". --}}
+        @if ($canSend && $canAttach)
             x-data="{ depth: 0 }"
             x-on:dragenter.prevent="depth++"
             x-on:dragleave="depth = Math.max(0, depth - 1)"
@@ -148,7 +149,7 @@
             "
         @endif
     >
-        @if ($canSend)
+        @if ($canSend && $canAttach)
             <div
                 wire:key="fchat-drop-overlay"
                 x-show="depth > 0"
@@ -214,12 +215,14 @@
                     <div
                         wire:key="msg-{{ $message->ulid }}"
                         x-data="{ picker: false }"
-                        @class(['group/msg flex items-center gap-1', 'flex-row-reverse' => $mine])
+                        {{-- relative: the reaction picker is anchored to the row on the bubble's side, so it never leaves the window. --}}
+                        @class(['group/msg relative flex items-center gap-1', 'flex-row-reverse' => $mine])
                     >
-                        <div @class(['flex max-w-[85%] flex-col', 'items-end' => $mine, 'items-start' => !$mine])>
+                        {{-- min-w-0 + wrap-anywhere: a long word or URL wraps instead of widening the bubble. --}}
+                        <div @class(['flex min-w-0 max-w-[85%] flex-col', 'items-end' => $mine, 'items-start' => !$mine])>
                             <div
                                 @class([
-                                    'rounded-2xl px-3 py-2 text-sm',
+                                    'max-w-full rounded-2xl px-3 py-2 text-sm',
                                     'bg-primary-600 text-white' => $mine,
                                     'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-gray-100' => !$mine,
                                 ])
@@ -229,7 +232,9 @@
                                         {{ $message->author ? ChatUsers::name($message->author) : __('filament-chat::chat.unknown_user') }}
                                     </div>
                                 @endif
-                                <div class="break-words">{{ ChatText::toHtml($message->body, array_intersect_key($names, array_flip($message->mentionIds())), $me?->getKey()) }}</div>
+                                @if (trim($message->body) !== '')
+                                    <div class="wrap-anywhere break-words">{{ ChatText::toHtml($message->body, array_intersect_key($names, array_flip($message->mentionIds())), $me?->getKey()) }}</div>
+                                @endif
                                 @if ($reference)
                                     @include('filament-chat::livewire.reference', ['reference' => $reference, 'mine' => $mine])
                                 @endif
@@ -276,7 +281,7 @@
                             @endif
                         </div>
                         @if ($canSend)
-                            <div class="relative flex shrink-0 items-center">
+                            <div class="flex shrink-0 items-center">
                                 @if (in_array($message->id, $editable, true))
                                     <button
                                         type="button"

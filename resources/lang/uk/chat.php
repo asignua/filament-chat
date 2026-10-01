@@ -32,6 +32,7 @@ return [
     'unknown_user' => 'Користувач',
     'load_older' => 'Показати раніші повідомлення',
     'attach_record' => 'Прикріпити запис',
+    'attachment' => 'Вкладення',
     'attach' => 'Прикріпити',
     'detach' => 'Відкріпити запис',
     'reference_type' => 'Що саме',

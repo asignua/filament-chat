@@ -24,7 +24,7 @@ class MessageRepository
      */
     public function create(Conversation $conversation, Model $author, MessageData $data, array $mentions = []): Message
     {
-        $body = $this->validBody($data->body);
+        $body = $this->validBody($data->body, $data->referenceType !== null);
 
         $model = ChatConfig::messageModel();
         $message = new $model;
@@ -46,7 +46,7 @@ class MessageRepository
      */
     public function update(Message $message, string $body, array $mentions = []): Message
     {
-        $body = $this->validBody($body);
+        $body = $this->validBody($body, $message->reference_type !== null);
 
         if ($body === $message->body) {
             return $message;
@@ -95,11 +95,14 @@ class MessageRepository
         return $conversation->messages()->where('id', '<', $messageId)->exists();
     }
 
-    private function validBody(string $body): string
+    /**
+     * A message may be just a record reference — then the text can be empty.
+     */
+    private function validBody(string $body, bool $hasReference): string
     {
         $body = trim($body);
 
-        if ($body === '') {
+        if ($body === '' && !$hasReference) {
             throw new InvalidArgumentException(__('filament-chat::chat.error_empty'));
         }
 

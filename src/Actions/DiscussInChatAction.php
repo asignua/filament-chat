@@ -61,10 +61,10 @@ class DiscussInChatAction extends Action
                     ->searchable()
                     ->native(false)
                     ->required(),
+                // Optional: the record alone is a message too.
                 Textarea::make('body')
                     ->label(__('filament-chat::chat.message'))
-                    ->rows(3)
-                    ->required(),
+                    ->rows(3),
             ])
             ->modalSubmitActionLabel(__('filament-chat::chat.send'))
             ->action(function (array $data, Model $record): void {
