@@ -3,6 +3,10 @@
     "description": "Internal team chat for Filament panels: direct messages, groups, reactions, read receipts, a slide-over dock and links to your panel records.",
     "keywords": ["filament", "filament-plugin", "laravel", "livewire", "chat", "messenger", "team-chat", "reverb"],
     "homepage": "https://github.com/asignua/filament-chat",
+    "support": {
+        "issues": "https://github.com/asignua/filament-chat/issues",
+        "source": "https://github.com/asignua/filament-chat"
+    },
     "license": "MIT",
     "authors": [
         {

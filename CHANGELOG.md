@@ -2,6 +2,12 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.0.0
+
+- First stable release, published on Packagist and in the Filament plugin catalog.
+- README: screenshots, badges.
+- Repository files (`art/`, tests, workbench, tooling) are no longer shipped with `composer require`.
+
 ## v0.1.1
 
 - A reference type registered without a resource (`ReferenceType::make()`) resolves dropped links
