@@ -2,6 +2,10 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.0.1
+
+- Author name corrected: Mykhailo Hladchenko.
+
 ## v1.0.0
 
 - First stable release, published on Packagist and in the Filament plugin catalog.
