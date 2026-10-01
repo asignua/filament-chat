@@ -23,6 +23,7 @@ Works with or without a websocket server: turn real-time on with one environment
 - [Record references](#record-references) — which records, who sees them, drag & drop, "Discuss in chat"
 - [Real-time delivery](#real-time-delivery) — Reverb, Docker, nginx, Pusher, polling
 - [Notifications](#notifications)
+- [Translations](#translations) — your language, your own wording
 - [Customising](#customising) — own models, audit trail, events
 - [Integration notes](#integration-notes) — custom themes, panels built by a package, several panels
 - [Troubleshooting](#troubleshooting)
@@ -60,7 +61,7 @@ Dark mode:
 | **Where** | A full **Chat** page and a **top-bar button** with a slide-over; on wide screens the slide-over can be **pinned** as a split screen that stays open across pages. |
 | **Unread** | Counters in the navigation, on the button, in the browser tab title and on the favicon; a bell notification on the first unread message of a conversation and on every mention; a "Reply" toast. |
 | **Privacy** | A conversation is visible to its members only — admins included. Messages are never deleted. |
-| **Languages** | English and Ukrainian. |
+| **Languages** | English and Ukrainian; [add yours](#translations). |
 
 Every feature can be switched off.
 
@@ -343,6 +344,42 @@ subscribes. An existing `window.Echo` is never replaced.
 |---|---|---|
 | `notifications.database` | `true` | the bell: the first unread message of a conversation (the rest only grow the counter) and every mention. Needs `->databaseNotifications()`, the `notifications` table and `Notifiable` on the user model. |
 | `notifications.toasts` | `true` | a "Reply" toast for a message in another conversation (real-time only) |
+
+## Translations
+
+The chat speaks English and Ukrainian and follows your app's locale. Every string lives in one file,
+[`resources/lang/en/chat.php`](https://github.com/asignua/filament-chat/blob/main/resources/lang/en/chat.php).
+
+**Another language** — create `lang/vendor/filament-chat/{locale}/chat.php` in your app with the same
+keys (copy the English file and translate it):
+
+```php
+// lang/vendor/filament-chat/de/chat.php
+return [
+    'chat' => 'Chat',
+    'new_group' => 'Neue Gruppe',
+    // ...
+];
+```
+
+**Change a few phrases** — the same file with only the keys you want to change; the rest still comes
+from the package:
+
+```php
+// lang/vendor/filament-chat/en/chat.php
+return [
+    'chat' => 'Messages',
+];
+```
+
+**Copy all package translations** to edit them:
+
+```bash
+php artisan vendor:publish --tag=filament-chat-translations
+```
+
+Translated the chat into your language? A pull request with `resources/lang/{locale}/chat.php` is
+very welcome.
 
 ## Customising
 
