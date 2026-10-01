@@ -4,7 +4,7 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/asignua/filament-chat.svg?style=flat-square)](https://packagist.org/packages/asignua/filament-chat)
 [![Tests](https://img.shields.io/github/actions/workflow/status/asignua/filament-chat/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/asignua/filament-chat/actions/workflows/tests.yml)
 [![Total Downloads](https://img.shields.io/packagist/dt/asignua/filament-chat.svg?style=flat-square)](https://packagist.org/packages/asignua/filament-chat)
-[![License](https://img.shields.io/packagist/l/asignua/filament-chat.svg?style=flat-square)](LICENSE.md)
+[![License](https://img.shields.io/packagist/l/asignua/filament-chat.svg?style=flat-square)](https://github.com/asignua/filament-chat/blob/main/LICENSE.md)
 
 <img class="filament-hidden" src="https://raw.githubusercontent.com/asignua/filament-chat/v1.0.0/art/cover.jpg" alt="Filament Chat">
 
@@ -446,4 +446,4 @@ npm run build      # rebuild resources/dist/filament-chat.css after changing vie
 
 ## License
 
-MIT. See [LICENSE.md](LICENSE.md).
+MIT. See [LICENSE.md](https://github.com/asignua/filament-chat/blob/main/LICENSE.md).
