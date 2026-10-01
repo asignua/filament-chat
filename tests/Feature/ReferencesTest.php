@@ -315,4 +315,14 @@ class ReferencesTest extends TestCase
 
         $this->assertSame($note->id, Message::query()->sole()->reference_id);
     }
+
+    public function test_a_type_without_a_resource_resolves_dropped_links_by_model(): void
+    {
+        $this->actingAs($this->user());
+        $note = Note::query()->create(['title' => 'Plan']);
+        $registry = new ReferenceRegistry;
+        $registry->register(ReferenceType::make('memo', Note::class)->title(fn (Note $n): string => $n->title));
+
+        $this->assertSame(['type' => 'memo', 'id' => $note->id], $this->resolveWith($registry, NoteResource::getUrl('edit', ['record' => $note])));
+    }
 }

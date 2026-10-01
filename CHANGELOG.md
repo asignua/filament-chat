@@ -2,7 +2,14 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
-## Unreleased
+## v0.1.1
+
+- A reference type registered without a resource (`ReferenceType::make()`) resolves dropped links
+  of every resource of its model.
+- The private channel is authorised only for people one can write to (`->users()`): an archived
+  or deactivated account stops receiving events.
+
+## v0.1.0
 
 - Direct messages and groups (title, members, leave; the creator manages).
 - @mentions with autocomplete; a mention always notifies.

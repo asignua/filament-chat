@@ -85,7 +85,12 @@ final class ReferenceRegistry
      */
     public function forResource(string $resource): array
     {
-        return array_filter($this->all(), fn (ReferenceType $type): bool => $type->getResource() === $resource);
+        // A type registered without a resource (ReferenceType::make) matches every resource
+        // of its model — e.g. one "geography" type for country, region and city resources.
+        $model = is_subclass_of($resource, Resource::class) ? $resource::getModel() : null;
+
+        return array_filter($this->all(), fn (ReferenceType $type): bool => $type->getResource() === $resource
+            || ($type->getResource() === null && $type->getModel() === $model));
     }
 
     /**

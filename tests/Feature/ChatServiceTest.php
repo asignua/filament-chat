@@ -14,6 +14,7 @@ use Asignua\FilamentChat\Repositories\ConversationRepository;
 use Asignua\FilamentChat\Repositories\ReactionRepository;
 use Asignua\FilamentChat\Services\ChatService;
 use Asignua\FilamentChat\Tests\TestCase;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
@@ -239,5 +240,17 @@ class ChatServiceTest extends TestCase
         }
 
         $this->assertSame(0, Message::query()->count());
+    }
+
+    public function test_the_private_channel_is_only_for_people_one_can_write_to(): void
+    {
+        $active = $this->user();
+        $inactive = $this->user(['is_active' => false]);
+        $channel = Broadcast::driver()->getChannels()->get(ChatUpdated::CHANNEL.'{key}');
+
+        $this->assertNotNull($channel);
+        $this->assertTrue($channel($active, (string) $active->id));
+        $this->assertFalse($channel($inactive, (string) $inactive->id));
+        $this->assertFalse($channel($active, (string) $inactive->id));
     }
 }

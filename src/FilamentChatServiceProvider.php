@@ -70,10 +70,12 @@ class FilamentChatServiceProvider extends PackageServiceProvider
         Gate::policy(ChatConfig::messageModel(), MessagePolicy::class);
 
         if (ChatConfig::realtime()) {
-            // A person listens only to their own channel.
+            // A person listens only to their own channel, and only while they may chat at all
+            // (an archived or deactivated account loses it with the next auth request).
             Broadcast::channel(
                 ChatUpdated::CHANNEL.'{key}',
-                fn (Model $user, string $key): bool => ChatUsers::broadcastKey($user) === $key,
+                fn (Model $user, string $key): bool => ChatUsers::broadcastKey($user) === $key
+                    && ChatUsers::query()->whereKey($user->getKey())->exists(),
             );
 
             // Private channels need /broadcasting/auth; many panels never set broadcasting up.
