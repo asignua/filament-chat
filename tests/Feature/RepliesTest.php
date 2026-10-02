@@ -179,4 +179,22 @@ class RepliesTest extends TestCase
             ->assertSeeHtml('data-fchat-quote="'.$original->ulid.'"')
             ->assertSee(__('filament-chat::chat.unknown_user'));
     }
+
+    public function test_replies_off_in_config_still_render_stored_quotes(): void
+    {
+        $me = $this->user();
+        $olga = $this->user(['name' => 'Olga']);
+        $direct = $this->direct($me, $olga);
+        $original = $this->send($direct, $olga, 'Question');
+        app(ChatService::class)->send($direct, $me, MessageData::fromArray(['body' => 'Answer', 'reply_to' => $original->ulid]));
+        config(['filament-chat.features.replies' => false]);
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)
+            ->call('open', $direct->ulid)
+            ->assertSeeHtml('data-fchat-quote="'.$original->ulid.'"')
+            ->assertDontSeeHtml('startReply(')
+            ->call('startReply', $original->ulid)
+            ->assertSet('replyingTo', null);
+    }
 }

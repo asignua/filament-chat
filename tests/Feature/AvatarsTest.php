@@ -48,10 +48,12 @@ class AvatarsTest extends TestCase
 
         Livewire::test(ChatWindow::class)
             ->call('open', $group->ulid)
-            ->assertViewHas('mentionable', function (array $people): bool {
+            ->assertViewHas('mentionable', function (array $people) use ($others): bool {
                 return count($people) === 7
                     && !in_array('Anna', array_column($people, 'name'), true)
                     && array_column($people, 'name') === ['Iryna L', 'Iryna M', 'Iryna P', 'Maria', 'Marta', 'Natalia', 'Olena']
+                    && array_keys($people[0]) === ['key', 'name', 'avatar']
+                    && $people[0]['key'] === $others[2]->id
                     && str_contains((string) $people[0]['avatar'], 'ui-avatars.com');
             });
     }
@@ -71,7 +73,9 @@ class AvatarsTest extends TestCase
             ->assertViewHas('avatarsOn', false)
             ->assertViewHas('avatars', [])
             ->assertViewHas('mentionable', fn (array $people): bool => $people[0]['avatar'] === null)
-            ->assertDontSeeHtml('ui-avatars.com');
+            ->assertDontSeeHtml('ui-avatars.com')
+            ->assertSee('Hi')
+            ->assertDontSeeHtml('data-fchat-avatar');
     }
 
     public function test_group_feed_shows_the_avatar_once_per_series(): void

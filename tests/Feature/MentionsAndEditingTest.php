@@ -10,6 +10,7 @@ use Asignua\FilamentChat\Notifications\MentionNotification;
 use Asignua\FilamentChat\Notifications\NewMessageNotification;
 use Asignua\FilamentChat\Services\ChatService;
 use Asignua\FilamentChat\Support\ChatText;
+use Asignua\FilamentChat\Support\ChatUsers;
 use Asignua\FilamentChat\Support\Mentions;
 use Asignua\FilamentChat\Tests\TestCase;
 use Illuminate\Support\Facades\Event;
@@ -165,7 +166,7 @@ class MentionsAndEditingTest extends TestCase
 
         Livewire::test(ChatWindow::class)
             ->call('open', $group->ulid)
-            ->assertViewHas('mentionable', fn (array $people): bool => array_column($people, 'name') === ['Olga'])
+            ->assertViewHas('mentionable', [['key' => $olga->id, 'name' => 'Olga', 'avatar' => ChatUsers::avatar($olga)]])
             ->assertSeeHtml('<span class="fchat-mention">@Olga</span>');
     }
 }
