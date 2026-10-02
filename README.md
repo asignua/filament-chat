@@ -405,6 +405,9 @@ php artisan migrate
 
 (`php artisan filament-chat:install --migrate` does the same: it publishes whatever is missing.)
 
+Without the new migration 1.2 keeps working, but replies stay off until you run it: the package checks
+for the `reply_to_id` column.
+
 The published migration reads the table name from `tables.messages`, so a renamed table is covered.
 Only if your messages table was **not** created by the package's published migration (your app made it
 some other way), add the column yourself, replacing `chat_messages` with your table name:

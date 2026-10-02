@@ -73,6 +73,8 @@ Every config key has a plugin setter; the plugin wins. Closures exist only on th
 `php artisan vendor:publish --tag=filament-chat-migrations && php artisan migrate` (or
 `filament-chat:install --migrate`; a 1.0/1.1 migration already published is left untouched). With
 renamed/own tables add `reply_to_id` (nullable FK to the messages table, nullOnDelete) by hand.
+Without the new migration 1.2 keeps working, but replies stay off until you run it (the package
+checks for the `reply_to_id` column).
 Switching `features.replies` off keeps stored quotes visible. Avatars and the «New messages» line
 need no migration.
 
