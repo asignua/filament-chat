@@ -113,6 +113,16 @@ final class ChatConfig
         return (bool) config('filament-chat.features.mentions', true);
     }
 
+    public static function avatars(): bool
+    {
+        return (bool) config('filament-chat.features.avatars', true);
+    }
+
+    public static function replies(): bool
+    {
+        return (bool) config('filament-chat.features.replies', true);
+    }
+
     public static function readReceipts(): bool
     {
         return (bool) config('filament-chat.features.read_receipts', true);

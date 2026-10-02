@@ -51,6 +51,23 @@ final class ChatUsers
     }
 
     /**
+     * Avatar URL: the plugin's ->avatarUsing(), else Filament's provider
+     * (HasAvatar::getFilamentAvatarUrl(), then the panel's default — initials).
+     */
+    public static function avatar(Model $user): ?string
+    {
+        $resolver = app(ChatManager::class)->avatarUsing;
+
+        if ($resolver !== null) {
+            $url = $resolver($user);
+
+            return is_string($url) && $url !== '' ? $url : null;
+        }
+
+        return Filament::getUserAvatarUrl($user);
+    }
+
+    /**
      * People one can write to (and add to a group) — all users unless the
      * plugin narrows it with `->users()`.
      *

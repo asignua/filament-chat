@@ -165,7 +165,7 @@ class MentionsAndEditingTest extends TestCase
 
         Livewire::test(ChatWindow::class)
             ->call('open', $group->ulid)
-            ->assertViewHas('mentionable', ['Olga'])
+            ->assertViewHas('mentionable', fn (array $people): bool => array_column($people, 'name') === ['Olga'])
             ->assertSeeHtml('<span class="fchat-mention">@Olga</span>');
     }
 }

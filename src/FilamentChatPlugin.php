@@ -40,6 +40,9 @@ class FilamentChatPlugin implements Plugin
     /** @var (Closure(Model): string)|null */
     protected ?Closure $userName = null;
 
+    /** @var (Closure(Model): ?string)|null */
+    protected ?Closure $avatarUrl = null;
+
     /** @var (Closure(): list<AllResources|ReferenceType>)|list<AllResources|ReferenceType> */
     protected array|Closure $references = [];
 
@@ -134,6 +137,28 @@ class FilamentChatPlugin implements Plugin
     public function readReceipts(bool $condition = true): static
     {
         return $this->set('features.read_receipts', $condition);
+    }
+
+    public function avatars(bool $condition = true): static
+    {
+        return $this->set('features.avatars', $condition);
+    }
+
+    public function replies(bool $condition = true): static
+    {
+        return $this->set('features.replies', $condition);
+    }
+
+    /**
+     * A person's avatar URL; null — initials. Default: Filament's avatar provider.
+     *
+     * @param Closure(Model): ?string $url
+     */
+    public function avatarUsing(Closure $url): static
+    {
+        $this->avatarUrl = $url;
+
+        return $this;
     }
 
     /**
@@ -238,6 +263,7 @@ class FilamentChatPlugin implements Plugin
         $manager->panelId = $panel->getId();
         $manager->modifyUsersQueryUsing = $this->users;
         $manager->userNameUsing = $this->userName;
+        $manager->avatarUsing = $this->avatarUrl;
 
         foreach (value($this->references) as $type) {
             $manager->references->register($type);

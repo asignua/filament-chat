@@ -573,6 +573,16 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             }
         }
 
+        $avatars = [];
+
+        if (ChatConfig::avatars()) {
+            foreach ($current->participants ?? [] as $participant) {
+                if ($participant->user !== null) {
+                    $avatars[$participant->user_id] = ChatUsers::avatar($participant->user);
+                }
+            }
+        }
+
         return view('filament-chat::livewire.chat-window', [
             'me' => $user,
             'conversations' => $conversations,
@@ -595,14 +605,16 @@ class ChatWindow extends Component implements HasActions, HasSchemas
                 : [],
             // key → name of everyone in the conversation: mentions in messages are highlighted by it.
             'names' => $names,
-            // Whom "@" offers in the composer: active members but me.
+            // Whom "@" offers in the composer: active members but me — all of them, the list scrolls.
             'mentionable' => ChatConfig::mentions() && $current !== null && $user !== null
                 ? array_values($current->participants
                     ->filter(fn ($participant): bool => $participant->isActive() && $participant->user_id !== $user->getKey() && $participant->user !== null)
-                    ->map(fn ($participant): string => $names[$participant->user_id])
-                    ->sort()
+                    ->map(fn ($participant): array => ['name' => $names[$participant->user_id], 'avatar' => $avatars[$participant->user_id] ?? null])
+                    ->sortBy('name')
                     ->all())
                 : [],
+            'avatars' => $avatars,
+            'avatarsOn' => ChatConfig::avatars(),
             // Explicit flags: an action rendered already in mount() is shown disabled
             // by Filament rather than hidden, so the group buttons render only on these.
             'canManage' => $current !== null && Gate::allows('update', $current),

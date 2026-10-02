@@ -60,6 +60,14 @@ return [
         // ✓ sent / ✓✓ read on one's own messages.
         'read_receipts' => true,
 
+        // Authors' avatars in group feeds, the @ list and the member line. The URL comes
+        // from Filament's avatar provider (HasAvatar, then the panel's provider) unless
+        // the plugin sets ->avatarUsing(fn ($user) => …).
+        'avatars' => true,
+
+        // Reply to a specific message: a quote above the text, a click jumps to the original.
+        'replies' => true,
+
         // Authors edit their messages; `window` — minutes after sending (null = any time).
         'editing' => [
             'enabled' => true,

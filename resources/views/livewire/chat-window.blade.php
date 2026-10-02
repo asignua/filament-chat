@@ -407,7 +407,7 @@
                                     const match = before.match(/(^|\s)@([^@\n]{0,40})$/u)
                                     if (! match) { this.open = false; return }
                                     const query = match[2].toLowerCase()
-                                    this.items = this.people().filter((name) => name.toLowerCase().includes(query)).slice(0, 6)
+                                    this.items = this.people().filter((person) => person.name.toLowerCase().includes(query))
                                     this.start = el.selectionStart - match[2].length - 1
                                     this.index = 0
                                     this.open = this.items.length > 0
@@ -426,7 +426,7 @@
                                     if (this.open) {
                                         if (event.key === 'ArrowDown') { event.preventDefault(); this.index = (this.index + 1) % this.items.length; return }
                                         if (event.key === 'ArrowUp') { event.preventDefault(); this.index = (this.index - 1 + this.items.length) % this.items.length; return }
-                                        if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); this.pick(this.items[this.index]); return }
+                                        if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); this.pick(this.items[this.index].name); return }
                                         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); this.open = false; return }
                                     }
                                     if (event.key === 'Enter' && ! event.shiftKey) { event.preventDefault(); this.$wire.send(); return }
@@ -448,15 +448,15 @@
                                 x-cloak
                                 class="absolute bottom-full start-0 z-20 mb-1 max-h-56 w-64 max-w-full overflow-y-auto rounded-lg bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-800 dark:ring-white/10"
                             >
-                                <template x-for="(name, i) in items" :key="name">
+                                <template x-for="(person, i) in items" :key="person.name">
                                     <li>
                                         <button
                                             type="button"
-                                            x-on:mousedown.prevent="pick(name)"
+                                            x-on:mousedown.prevent="pick(person.name)"
                                             x-bind:class="i === index ? 'bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300' : 'text-gray-700 dark:text-gray-200'"
                                             class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm"
                                         >
-                                            <span class="text-gray-400">@</span><span x-text="name"></span>
+                                            <span class="text-gray-400">@</span><span x-text="person.name"></span>
                                         </button>
                                     </li>
                                 </template>

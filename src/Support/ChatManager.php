@@ -26,6 +26,9 @@ final class ChatManager
     /** @var (Closure(Model): string)|null */
     public ?Closure $userNameUsing = null;
 
+    /** @var (Closure(Model): ?string)|null */
+    public ?Closure $avatarUsing = null;
+
     public ?FilamentChatPlugin $plugin = null;
 
     public ?string $panelId = null;
