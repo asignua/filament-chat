@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/packagist/l/asignua/filament-chat.svg?style=flat-square)](https://github.com/asignua/filament-chat/blob/main/LICENSE.md)
 [![Plumb score](https://plumbphp.dev/badges/asignua/filament-chat/composite.svg)](https://plumbphp.dev/asignua/filament-chat)
 
-<img class="filament-hidden" src="https://raw.githubusercontent.com/asignua/filament-chat/v1.0.0/art/cover.jpg" alt="Filament Chat">
+<img class="filament-hidden" src="https://raw.githubusercontent.com/asignua/filament-chat/v1.2.0/art/cover.jpg" alt="Filament Chat">
 
 Team chat for [Filament](https://filamentphp.com) panels. Direct messages and groups, @mentions,
 editing, reactions, read receipts, a slide-over you can pin next to any page — and messages that
@@ -36,19 +36,19 @@ Works with or without a websocket server: turn real-time on with one environment
 
 The Chat page — conversations, reactions, read receipts and record cards:
 
-![The Chat page](https://raw.githubusercontent.com/asignua/filament-chat/v1.0.0/art/chat-page.jpg)
+![The Chat page](https://raw.githubusercontent.com/asignua/filament-chat/v1.2.0/art/chat-page.jpg)
 
 The slide-over pinned next to a record page, with "Attach current":
 
-![The slide-over next to a record](https://raw.githubusercontent.com/asignua/filament-chat/v1.0.0/art/slide-over.jpg)
+![The slide-over next to a record](https://raw.githubusercontent.com/asignua/filament-chat/v1.2.0/art/slide-over.jpg)
 
 @mentions with autocomplete:
 
-![Mentions](https://raw.githubusercontent.com/asignua/filament-chat/v1.0.0/art/mention.jpg)
+![Mentions](https://raw.githubusercontent.com/asignua/filament-chat/v1.2.0/art/mention.jpg)
 
 Dark mode:
 
-![Dark mode](https://raw.githubusercontent.com/asignua/filament-chat/v1.0.0/art/chat-page-dark.jpg)
+![Dark mode](https://raw.githubusercontent.com/asignua/filament-chat/v1.2.0/art/chat-page-dark.jpg)
 
 ## Features
 
@@ -405,7 +405,9 @@ php artisan migrate
 
 (`php artisan filament-chat:install --migrate` does the same: it publishes whatever is missing.)
 
-Your own tables (`tables.*` renamed or created by your app)? Add the column yourself:
+The published migration reads the table name from `tables.messages`, so a renamed table is covered.
+Only if your messages table was **not** created by the package's published migration (your app made it
+some other way), add the column yourself, replacing `chat_messages` with your table name:
 
 ```php
 Schema::table('chat_messages', function (Blueprint $table): void {
