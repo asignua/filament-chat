@@ -197,10 +197,16 @@
 
             <div
                 wire:key="fchat-feed"
-                class="flex-1 space-y-1 overflow-y-auto px-3 py-3"
+                class="relative flex-1 space-y-1 overflow-y-auto px-3 py-3"
                 x-data
-                x-init="$el.scrollTop = $el.scrollHeight"
-                x-on:{{ ChatWindow::EVENT_SCROLL }}.window="$nextTick(() => $el.scrollTop = $el.scrollHeight)"
+                x-init="$nextTick(() => {
+                    const line = document.getElementById('fchat-unread-line')
+                    $el.scrollTop = line ? line.offsetTop - 8 : $el.scrollHeight
+                })"
+                x-on:{{ ChatWindow::EVENT_SCROLL }}.window="$nextTick(() => {
+                    const line = $event.detail?.unread ? document.getElementById('fchat-unread-line') : null
+                    $el.scrollTop = line ? line.offsetTop - 8 : $el.scrollHeight
+                })"
                 x-on:{{ ChatWindow::EVENT_HIGHLIGHT }}.window="$nextTick(() => {
                     const target = document.getElementById('fchat-msg-' + $event.detail.message)
                     if (! target) return
@@ -231,6 +237,13 @@
                     @if ($day !== $messageDay)
                         <div class="py-2 text-center text-xs text-gray-400" wire:key="day-{{ $messageDay }}">{{ $messageDay }}</div>
                         @php $day = $messageDay; @endphp
+                    @endif
+                    @if ($unreadMarker === $message->id)
+                        <div wire:key="fchat-unread-line" id="fchat-unread-line" data-fchat-unread class="flex items-center gap-2 py-2 text-xs font-medium text-primary-600 dark:text-primary-400">
+                            <span class="h-px flex-1 bg-primary-500/40"></span>
+                            {{ __('filament-chat::chat.new_messages') }}
+                            <span class="h-px flex-1 bg-primary-500/40"></span>
+                        </div>
                     @endif
                     @php $messageReactions = $reactions[$message->id] ?? []; @endphp
                     <div

@@ -131,6 +131,8 @@ class RepliesTest extends TestCase
             $this->send($direct, $olga, "filler {$i}");
         }
         $this->actingAs($me);
+        // Read it all first: unread messages would raise the limit through the «New messages» line.
+        Livewire::test(ChatWindow::class)->call('open', $direct->ulid);
 
         Livewire::test(ChatWindow::class)
             ->call('open', $direct->ulid)

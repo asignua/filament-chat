@@ -87,6 +87,16 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     #[Locked]
     public bool $compact = false;
 
+    /**
+     * id of the first message that was unread when the conversation opened —
+     * the «New messages» line stands before it. Set on open, cleared by sending.
+     */
+    #[Locked]
+    public ?int $unreadMarker = null;
+
+    /** The line is shown only if the first unread message fits into this many pages. */
+    private const int UNREAD_MAX_PAGES = 5;
+
     /** ulid of the open conversation. */
     public ?string $conversation = null;
 
@@ -179,12 +189,46 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             $this->clearReference();
             $this->cancelEdit();
             $this->cancelReply();
+            $this->unreadMarker = $this->unreadMarkerFor($record);
         }
 
         $this->conversation = $record->ulid;
         $this->markRead($record);
-        $this->dispatch(self::EVENT_SCROLL);
+        $this->dispatch(self::EVENT_SCROLL, unread: $this->unreadMarker !== null);
         $this->dispatch(self::EVENT_OPENED, conversation: $record->ulid);
+    }
+
+    /**
+     * Before the conversation is marked read: where the unread part starts.
+     * Loads enough history for the line to be visible (up to UNREAD_MAX_PAGES).
+     */
+    private function unreadMarkerFor(Conversation $conversation): ?int
+    {
+        $user = ChatUsers::current();
+        $participant = $user !== null ? app(ConversationRepository::class)->participant($conversation, $user) : null;
+
+        if ($user === null || $participant === null) {
+            return null;
+        }
+
+        $messages = app(MessageRepository::class);
+        $first = $messages->firstUnread($conversation, $user, $participant->last_read_message_id, $participant->left_at);
+
+        if ($first === null) {
+            return null;
+        }
+
+        $page = ChatConfig::pageSize();
+        // +1: one already-read message above the line, for context.
+        $needed = $messages->countFrom($conversation, $first->id, $participant->left_at) + 1;
+
+        if ($needed > self::UNREAD_MAX_PAGES * $page) {
+            return null;
+        }
+
+        $this->limit = max($this->limit, (int) ceil($needed / $page) * $page);
+
+        return $first->id;
     }
 
     #[On(self::EVENT_VISIBILITY)]
@@ -272,6 +316,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $this->body = '';
         $this->clearReference();
         $this->cancelReply();
+        $this->unreadMarker = null;
         $this->dispatch(self::EVENT_SCROLL);
         $this->dispatch(self::EVENT_SENT);
     }

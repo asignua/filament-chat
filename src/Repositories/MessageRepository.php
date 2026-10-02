@@ -120,6 +120,20 @@ class MessageRepository
     }
 
     /**
+     * The first message after the reader's read pointer written by someone else
+     * (a deleted author counts as someone else).
+     */
+    public function firstUnread(Conversation $conversation, Model $reader, ?int $after, ?Carbon $until = null): ?Message
+    {
+        return $conversation->messages()
+            ->where(fn (Builder $query): Builder => $query->whereNull('user_id')->orWhere('user_id', '!=', $reader->getKey()))
+            ->when($after !== null, fn (Builder $query): Builder => $query->where('id', '>', $after))
+            ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
      * How many messages, from this one to the newest (within `$until`) — how much
      * the feed must load for the message to be in it.
      */
