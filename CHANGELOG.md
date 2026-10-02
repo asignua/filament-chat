@@ -2,6 +2,13 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.1.0
+
+- Translations: German, Spanish, French, Italian, Dutch, Polish, Brazilian Portuguese and Turkish
+  (in addition to English and Ukrainian); a test keeps every language in step with the English keys.
+- Repository: GitHub Actions pinned to commit SHAs, Dependabot (with a 7-day cooldown), `SECURITY.md`.
+- README: Plumb score badge.
+
 ## v1.0.1
 
 - Author name corrected: Mykhailo Hladchenko.

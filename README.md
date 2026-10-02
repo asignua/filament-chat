@@ -348,17 +348,19 @@ subscribes. An existing `window.Echo` is never replaced.
 
 ## Translations
 
-The chat speaks English and Ukrainian and follows your app's locale. Every string lives in one file,
-[`resources/lang/en/chat.php`](https://github.com/asignua/filament-chat/blob/main/resources/lang/en/chat.php).
+The chat follows your app's locale and ships with English, Ukrainian, German, Spanish, French,
+Italian, Dutch, Polish, Brazilian Portuguese and Turkish. Every string lives in one file per language,
+e.g. [`resources/lang/en/chat.php`](https://github.com/asignua/filament-chat/blob/main/resources/lang/en/chat.php);
+dates use the same locale (month names come from Carbon).
 
 **Another language** — create `lang/vendor/filament-chat/{locale}/chat.php` in your app with the same
 keys (copy the English file and translate it):
 
 ```php
-// lang/vendor/filament-chat/de/chat.php
+// lang/vendor/filament-chat/cs/chat.php
 return [
     'chat' => 'Chat',
-    'new_group' => 'Neue Gruppe',
+    'new_group' => 'Nová skupina',
     // ...
 ];
 ```
