@@ -284,7 +284,7 @@
                                         {{ $message->author ? ChatUsers::name($message->author) : __('filament-chat::chat.unknown_user') }}
                                     </div>
                                 @endif
-                                @if ($message->reply_to_id !== null)
+                                @if ($quotesOn && $message->reply_to_id !== null)
                                     @php $original = $message->replyTo; @endphp
                                     <button
                                         type="button"
@@ -554,7 +554,7 @@
                                 x-cloak
                                 class="absolute bottom-full start-0 z-20 mb-1 max-h-52 w-64 max-w-full overflow-y-auto rounded-lg bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-800 dark:ring-white/10"
                             >
-                                <template x-for="(person, i) in items" :key="person.name">
+                                <template x-for="(person, i) in items" :key="person.key">
                                     <li>
                                         <button
                                             type="button"

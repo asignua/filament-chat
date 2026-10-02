@@ -118,9 +118,30 @@ final class ChatConfig
         return (bool) config('filament-chat.features.avatars', true);
     }
 
+    /**
+     * Replies are on in the config and the reply migration has been run.
+     */
     public static function replies(): bool
     {
-        return (bool) config('filament-chat.features.replies', true);
+        return (bool) config('filament-chat.features.replies', true) && self::repliesAvailable();
+    }
+
+    /**
+     * Whether the messages table has the `reply_to_id` column. A host that
+     * updated from 1.1 without running the new migration keeps a working
+     * chat — only replies stay off. Checked once per application instance.
+     */
+    public static function repliesAvailable(): bool
+    {
+        $manager = app(ChatManager::class);
+
+        if ($manager->replyColumn === null) {
+            $model = self::messageModel();
+            $manager->replyColumn = (new $model)->getConnection()->getSchemaBuilder()
+                ->hasColumn(self::table('messages'), 'reply_to_id');
+        }
+
+        return $manager->replyColumn;
     }
 
     public static function readReceipts(): bool

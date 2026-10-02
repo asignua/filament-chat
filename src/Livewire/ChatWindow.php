@@ -688,7 +688,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $messages = $this->loadMessages($current);
         $references = app(ChatManager::class)->references;
         $canSend = $current !== null && Gate::allows(ConversationPolicy::SEND, $current);
-        $replying = $current !== null && $this->replyingTo !== null
+        $replying = $current !== null && $this->replyingTo !== null && ChatConfig::replies()
             ? app(MessageRepository::class)->findInConversation($current, $this->replyingTo)
             : null;
         // Groups I left: preview only what I could see — the last message before leaving.
@@ -741,6 +741,8 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             'canSend' => $canSend,
             'replying' => $replying,
             'repliesOn' => ChatConfig::replies(),
+            // Stored quotes render whenever the column exists, even with replies off in config.
+            'quotesOn' => ChatConfig::repliesAvailable(),
             // Own messages that may still be edited — the policy rule without a query per message.
             'editable' => $canSend && $user !== null
                 ? array_values($messages->filter(fn (Message $message): bool => MessagePolicy::editableBy($message, $user))->map(fn (Message $message): int => $message->id)->all())
@@ -751,7 +753,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             'mentionable' => ChatConfig::mentions() && $current !== null && $user !== null
                 ? array_values($current->participants
                     ->filter(fn ($participant): bool => $participant->isActive() && $participant->user_id !== $user->getKey() && $participant->user !== null)
-                    ->map(fn ($participant): array => ['name' => $names[$participant->user_id], 'avatar' => $avatars[$participant->user_id] ?? null])
+                    ->map(fn ($participant): array => ['key' => $participant->user_id, 'name' => $names[$participant->user_id], 'avatar' => $avatars[$participant->user_id] ?? null])
                     ->sortBy('name')
                     ->all())
                 : [],

@@ -33,6 +33,12 @@ final class ChatManager
 
     public ?string $panelId = null;
 
+    /**
+     * Whether the messages table has `reply_to_id` — checked once per
+     * application instance (see ChatConfig::repliesAvailable()); null — not yet.
+     */
+    public ?bool $replyColumn = null;
+
     public function __construct(public readonly ReferenceRegistry $references) {}
 
     /**

@@ -34,7 +34,11 @@ class MessageRepository
         $message->reference_type = $data->referenceType;
         $message->reference_id = $data->referenceId;
         $message->mentions = $mentions !== [] ? $mentions : null;
-        $message->reply_to_id = $replyToId;
+
+        // Assigned only when set: before the reply migration the column does not exist.
+        if ($replyToId !== null) {
+            $message->reply_to_id = $replyToId;
+        }
         $message->save();
 
         return $message;
@@ -83,7 +87,7 @@ class MessageRepository
     {
         return $conversation->messages()
             ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
-            ->with(['author', 'replyTo.author'])
+            ->with(ChatConfig::repliesAvailable() ? ['author', 'replyTo.author'] : ['author'])
             ->orderByDesc('id')
             ->limit($limit)
             ->get()
