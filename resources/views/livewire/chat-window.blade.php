@@ -253,25 +253,28 @@
                         {{-- relative: the reaction picker is anchored to the row on the bubble's side, so it never leaves the window. --}}
                         @class(['group/msg relative flex items-center gap-1', 'flex-row-reverse' => $mine])
                     >
-                        @if ($withAvatar)
-                            <div class="size-7 shrink-0 self-end">
-                                @if ($lastInSeries)
-                                    @if ($avatars[$message->user_id] ?? null)
-                                        <img data-fchat-avatar src="{{ $avatars[$message->user_id] }}" alt="" class="size-7 rounded-full object-cover" loading="lazy" />
-                                    @else
-                                        {{-- ->avatarUsing() returned null, or the author's account is gone: initials, no network request. --}}
-                                        <span class="fchat-group-avatar fi-color-{{ $color }} flex size-7 items-center justify-center rounded-full text-[0.65rem] font-semibold">
-                                            {{ $message->author ? mb_strtoupper(mb_substr(ChatUsers::name($message->author), 0, 1)) : '?' }}
-                                        </span>
-                                    @endif
-                                @endif
-                            </div>
-                        @endif
                         {{-- min-w-0 + wrap-anywhere: a long word or URL wraps instead of widening the bubble. --}}
                         <div @class(['flex min-w-0 max-w-[85%] flex-col', 'items-end' => $mine, 'items-start' => !$mine])>
+                            {{-- The avatar sits beside the bubble, not the reactions: it lines up with the bubble's bottom. --}}
+                            @if ($withAvatar)
+                                <div class="flex max-w-full items-end gap-1">
+                                    <div class="size-7 shrink-0 self-end">
+                                        @if ($lastInSeries)
+                                            @if ($avatars[$message->user_id] ?? null)
+                                                <img data-fchat-avatar src="{{ $avatars[$message->user_id] }}" alt="" class="size-7 rounded-full object-cover" loading="lazy" />
+                                            @else
+                                                {{-- ->avatarUsing() returned null, or the author's account is gone: initials, no network request. --}}
+                                                <span class="fchat-group-avatar fi-color-{{ $color }} flex size-7 items-center justify-center rounded-full text-[0.65rem] font-semibold">
+                                                    {{ $message->author ? mb_strtoupper(mb_substr(ChatUsers::name($message->author), 0, 1)) : '?' }}
+                                                </span>
+                                            @endif
+                                        @endif
+                                    </div>
+                            @endif
                             <div
                                 @class([
                                     'max-w-full rounded-2xl px-3 py-2 text-sm',
+                                    'min-w-0' => $withAvatar,
                                     'bg-primary-600 text-white' => $mine,
                                     'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-gray-100' => !$mine,
                                 ])
@@ -324,8 +327,11 @@
                                     @endif
                                 </div>
                             </div>
+                            @if ($withAvatar)
+                                </div>
+                            @endif
                             @if ($reactionsOn && $messageReactions !== [])
-                                <div class="mt-0.5 flex flex-wrap gap-1">
+                                <div @class(['mt-0.5 flex flex-wrap gap-1', 'ps-8' => $withAvatar])>
                                     @foreach (Reaction::cases() as $reaction)
                                         @continue(!isset($messageReactions[$reaction->value]))
                                         @php
