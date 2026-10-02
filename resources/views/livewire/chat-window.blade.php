@@ -200,11 +200,11 @@
                 class="relative flex-1 space-y-1 overflow-y-auto px-3 py-3"
                 x-data
                 x-init="$nextTick(() => {
-                    const line = document.getElementById('fchat-unread-line')
+                    const line = $el.querySelector('#fchat-unread-line')
                     $el.scrollTop = line ? line.offsetTop - 8 : $el.scrollHeight
                 })"
                 x-on:{{ ChatWindow::EVENT_SCROLL }}.window="$nextTick(() => {
-                    const line = $event.detail?.unread ? document.getElementById('fchat-unread-line') : null
+                    const line = $event.detail?.unread ? $el.querySelector('#fchat-unread-line') : null
                     $el.scrollTop = line ? line.offsetTop - 8 : $el.scrollHeight
                 })"
                 x-on:{{ ChatWindow::EVENT_HIGHLIGHT }}.window="$nextTick(() => {

@@ -129,4 +129,58 @@ class NewMessagesLineTest extends TestCase
             ->call('open', $group->ulid)
             ->assertSet('unreadMarker', $gone->id);
     }
+
+    public function test_reopening_the_same_conversation_scrolls_down_not_to_the_line(): void
+    {
+        $me = $this->user();
+        $olga = $this->user();
+        $direct = $this->direct($me, $olga);
+        $first = $this->send($direct, $olga, 'fresh');
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)
+            ->call('open', $direct->ulid)
+            ->assertDispatched(ChatWindow::EVENT_SCROLL, unread: true)
+            ->call('open', $direct->ulid)
+            ->assertSet('unreadMarker', $first->id)
+            ->assertSeeHtml('data-fchat-unread')
+            ->assertDispatched(ChatWindow::EVENT_SCROLL, unread: false);
+    }
+
+    public function test_hidden_window_owes_the_scroll_until_it_is_shown(): void
+    {
+        $me = $this->user();
+        $olga = $this->user();
+        $direct = $this->direct($me, $olga);
+        $first = $this->send($direct, $olga, 'fresh');
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)
+            ->call('setVisible', false)
+            ->call('open', $direct->ulid)
+            ->assertSet('unreadMarker', $first->id)
+            ->assertNotDispatched(ChatWindow::EVENT_SCROLL, unread: true)
+            ->call('setVisible', true)
+            ->assertDispatched(ChatWindow::EVENT_SCROLL, unread: true)
+            ->call('setVisible', true)
+            ->assertDispatched(ChatWindow::EVENT_SCROLL, unread: false);
+    }
+
+    public function test_messages_after_leaving_a_group_give_no_marker(): void
+    {
+        $me = $this->user();
+        $olga = $this->user();
+        $ivan = $this->user();
+        $group = $this->group($me, 'Team', $olga, $ivan);
+        $this->send($group, $olga, 'while a member');
+        $this->actingAs($me);
+        Livewire::test(ChatWindow::class)->call('open', $group->ulid);
+        app(\Asignua\FilamentChat\Services\ChatService::class)->leave($group, $me);
+        $this->travel(5)->seconds(); // created_at has one-second precision
+        $this->send($group, $olga, 'after I left');
+
+        Livewire::test(ChatWindow::class)
+            ->call('open', $group->ulid)
+            ->assertSet('unreadMarker', null);
+    }
 }

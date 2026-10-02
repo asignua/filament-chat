@@ -94,6 +94,10 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     #[Locked]
     public ?int $unreadMarker = null;
 
+    /** The line was computed while the window was hidden: the first scroll to it is still owed. */
+    #[Locked]
+    public bool $scrollToUnread = false;
+
     /** The line is shown only if the first unread message fits into this many pages. */
     private const int UNREAD_MAX_PAGES = 5;
 
@@ -176,6 +180,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
     public function open(string $conversation): void
     {
+        $fresh = false;
         $record = app(ConversationRepository::class)->findByUlid($conversation);
 
         if ($record === null || !Gate::allows('view', $record)) {
@@ -190,11 +195,14 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             $this->cancelEdit();
             $this->cancelReply();
             $this->unreadMarker = $this->unreadMarkerFor($record);
+            $fresh = $this->unreadMarker !== null;
+            $this->scrollToUnread = $fresh && $this->hidden;
         }
 
         $this->conversation = $record->ulid;
         $this->markRead($record);
-        $this->dispatch(self::EVENT_SCROLL, unread: $this->unreadMarker !== null);
+        // Only a line computed in this very call is scrolled to; a hidden window owes the scroll until it shows.
+        $this->dispatch(self::EVENT_SCROLL, unread: $fresh && !$this->hidden);
         $this->dispatch(self::EVENT_OPENED, conversation: $record->ulid);
     }
 
@@ -239,7 +247,8 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
         if ($visible && $current !== null) {
             $this->markRead($current);
-            $this->dispatch(self::EVENT_SCROLL);
+            $this->dispatch(self::EVENT_SCROLL, unread: $this->scrollToUnread);
+            $this->scrollToUnread = false;
         }
     }
 
