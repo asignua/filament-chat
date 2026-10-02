@@ -2,6 +2,10 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.1.1
+
+- Author email updated in `composer.json`.
+
 ## v1.1.0
 
 - Translations: German, Spanish, French, Italian, Dutch, Polish, Brazilian Portuguese and Turkish
