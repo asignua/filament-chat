@@ -171,8 +171,19 @@
                 <div class="min-w-0 flex-1">
                     <div class="truncate font-semibold">{{ $current->titleFor($me) }}</div>
                     @if ($current->isGroup())
-                        <div class="truncate text-xs text-gray-500 dark:text-gray-400">
-                            {{ $members->map(fn ($u) => ChatUsers::name($u))->join(', ') }}
+                        <div class="flex items-center gap-1.5">
+                            @if ($avatarsOn)
+                                <span class="flex shrink-0 -space-x-1.5">
+                                    @foreach ($members->take(5) as $member)
+                                        @if ($avatars[$member->getKey()] ?? null)
+                                            <img src="{{ $avatars[$member->getKey()] }}" alt="" class="size-4 rounded-full object-cover ring-2 ring-white dark:ring-gray-900" />
+                                        @endif
+                                    @endforeach
+                                </span>
+                            @endif
+                            <div class="truncate text-xs text-gray-500 dark:text-gray-400">
+                                {{ $members->map(fn ($u) => ChatUsers::name($u))->join(', ') }}
+                            </div>
                         </div>
                     @endif
                 </div>
@@ -205,6 +216,9 @@
                         $messageDay = ChatTime::date($message->created_at);
                         $mine = $me !== null && $message->user_id === $me->getKey();
                         $showAuthor = !$mine && $current->isGroup() && ($prevAuthor !== $message->user_id || $day !== $messageDay);
+                        $next = $messages[$loop->index + 1] ?? null;
+                        $lastInSeries = $next === null || $next->user_id !== $message->user_id || ChatTime::date($next->created_at) !== $messageDay;
+                        $withAvatar = $avatarsOn && $current->isGroup() && !$mine;
                         $reference = app(\Asignua\FilamentChat\Support\ChatManager::class)->references->present($message->reference_type, $message->reference_id);
                     @endphp
                     @if ($day !== $messageDay)
@@ -214,10 +228,25 @@
                     @php $messageReactions = $reactions[$message->id] ?? []; @endphp
                     <div
                         wire:key="msg-{{ $message->ulid }}"
+                        id="fchat-msg-{{ $message->ulid }}"
                         x-data="{ picker: false }"
                         {{-- relative: the reaction picker is anchored to the row on the bubble's side, so it never leaves the window. --}}
                         @class(['group/msg relative flex items-center gap-1', 'flex-row-reverse' => $mine])
                     >
+                        @if ($withAvatar)
+                            <div class="size-7 shrink-0 self-end">
+                                @if ($lastInSeries)
+                                    @if ($avatars[$message->user_id] ?? null)
+                                        <img data-fchat-avatar src="{{ $avatars[$message->user_id] }}" alt="" class="size-7 rounded-full object-cover" loading="lazy" />
+                                    @else
+                                        {{-- ->avatarUsing() returned null, or the author's account is gone: initials, no network request. --}}
+                                        <span class="fchat-group-avatar fi-color-{{ $color }} flex size-7 items-center justify-center rounded-full text-[0.65rem] font-semibold">
+                                            {{ $message->author ? mb_strtoupper(mb_substr(ChatUsers::name($message->author), 0, 1)) : '?' }}
+                                        </span>
+                                    @endif
+                                @endif
+                            </div>
+                        @endif
                         {{-- min-w-0 + wrap-anywhere: a long word or URL wraps instead of widening the bubble. --}}
                         <div @class(['flex min-w-0 max-w-[85%] flex-col', 'items-end' => $mine, 'items-start' => !$mine])>
                             <div
@@ -422,10 +451,13 @@
                                     this.open = false
                                     el.focus()
                                 },
+                                reveal() {
+                                    this.$nextTick(() => this.$refs.list?.querySelectorAll('li')[this.index]?.scrollIntoView({ block: 'nearest' }))
+                                },
                                 key(event) {
                                     if (this.open) {
-                                        if (event.key === 'ArrowDown') { event.preventDefault(); this.index = (this.index + 1) % this.items.length; return }
-                                        if (event.key === 'ArrowUp') { event.preventDefault(); this.index = (this.index - 1 + this.items.length) % this.items.length; return }
+                                        if (event.key === 'ArrowDown') { event.preventDefault(); this.index = (this.index + 1) % this.items.length; this.reveal(); return }
+                                        if (event.key === 'ArrowUp') { event.preventDefault(); this.index = (this.index - 1 + this.items.length) % this.items.length; this.reveal(); return }
                                         if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); this.pick(this.items[this.index].name); return }
                                         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); this.open = false; return }
                                     }
@@ -444,6 +476,7 @@
                             })"
                         >
                             <ul
+                                x-ref="list"
                                 x-show="open"
                                 x-cloak
                                 class="absolute bottom-full start-0 z-20 mb-1 max-h-56 w-64 max-w-full overflow-y-auto rounded-lg bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-800 dark:ring-white/10"
@@ -456,6 +489,7 @@
                                             x-bind:class="i === index ? 'bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300' : 'text-gray-700 dark:text-gray-200'"
                                             class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm"
                                         >
+                                            <img x-show="person.avatar" x-bind:src="person.avatar" alt="" class="size-6 shrink-0 rounded-full object-cover" />
                                             <span class="text-gray-400">@</span><span x-text="person.name"></span>
                                         </button>
                                     </li>

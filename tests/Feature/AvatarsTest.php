@@ -73,4 +73,37 @@ class AvatarsTest extends TestCase
             ->assertViewHas('mentionable', fn (array $people): bool => $people[0]['avatar'] === null)
             ->assertDontSeeHtml('ui-avatars.com');
     }
+
+    public function test_group_feed_shows_the_avatar_once_per_series(): void
+    {
+        app(ChatManager::class)->avatarUsing = fn (Model $user): string => 'https://cdn.test/u'.$user->getKey().'.png';
+        $me = $this->user();
+        $olga = $this->user(['name' => 'Olga']);
+        $ivan = $this->user(['name' => 'Ivan']);
+        $group = $this->group($me, 'Team', $olga, $ivan);
+        $this->send($group, $olga, 'one');
+        $this->send($group, $olga, 'two');
+        $this->send($group, $ivan, 'three');
+        $this->send($group, $me, 'mine');
+        $this->actingAs($me);
+
+        $html = Livewire::test(ChatWindow::class)->call('open', $group->ulid)->html();
+
+        // Olga's series of two → one avatar, Ivan → one, my own message → none.
+        $this->assertSame(1, substr_count($html, 'data-fchat-avatar src="https://cdn.test/u'.$olga->id.'.png"'));
+        $this->assertSame(1, substr_count($html, 'data-fchat-avatar src="https://cdn.test/u'.$ivan->id.'.png"'));
+        $this->assertStringNotContainsString('data-fchat-avatar src="https://cdn.test/u'.$me->id.'.png"', $html);
+    }
+
+    public function test_direct_feed_has_no_avatars_next_to_messages(): void
+    {
+        app(ChatManager::class)->avatarUsing = fn (Model $user): string => 'https://cdn.test/u'.$user->getKey().'.png';
+        $me = $this->user();
+        $olga = $this->user(['name' => 'Olga']);
+        $direct = $this->direct($me, $olga);
+        $this->send($direct, $olga, 'hello');
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)->call('open', $direct->ulid)->assertDontSeeHtml('data-fchat-avatar');
+    }
 }
