@@ -148,7 +148,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         }
 
         if ($conversation !== null) {
-            $this->open($conversation);
+            $this->openConversation($conversation, true);
         }
     }
 
@@ -180,6 +180,15 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
     public function open(string $conversation): void
     {
+        $this->openConversation($conversation, false);
+    }
+
+    /**
+     * @param bool $first the mount: Livewire has already filled $conversation from ?c=,
+     *                    so "a different conversation" cannot be told from the property.
+     */
+    private function openConversation(string $conversation, bool $first): void
+    {
         $fresh = false;
         $record = app(ConversationRepository::class)->findByUlid($conversation);
 
@@ -189,7 +198,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             return;
         }
 
-        if ($this->conversation !== $record->ulid) {
+        if ($first || $this->conversation !== $record->ulid) {
             $this->limit = ChatConfig::pageSize();
             $this->clearReference();
             $this->cancelEdit();

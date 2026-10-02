@@ -552,7 +552,7 @@
                                 x-ref="list"
                                 x-show="open"
                                 x-cloak
-                                class="absolute bottom-full start-0 z-20 mb-1 max-h-56 w-64 max-w-full overflow-y-auto rounded-lg bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-800 dark:ring-white/10"
+                                class="absolute bottom-full start-0 z-20 mb-1 max-h-52 w-64 max-w-full overflow-y-auto rounded-lg bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-800 dark:ring-white/10"
                             >
                                 <template x-for="(person, i) in items" :key="person.name">
                                     <li>

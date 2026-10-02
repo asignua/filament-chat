@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Asignua\FilamentChat\Tests\Feature;
 
 use Asignua\FilamentChat\Livewire\ChatWindow;
+use Asignua\FilamentChat\Pages\Chat;
 use Asignua\FilamentChat\Tests\TestCase;
 use Livewire\Livewire;
 
@@ -182,5 +183,21 @@ class NewMessagesLineTest extends TestCase
         Livewire::test(ChatWindow::class)
             ->call('open', $group->ulid)
             ->assertSet('unreadMarker', null);
+    }
+
+    public function test_opening_by_url_shows_the_line_and_scrolls_to_it(): void
+    {
+        $me = $this->user();
+        $olga = $this->user();
+        $direct = $this->direct($me, $olga);
+        $first = $this->send($direct, $olga, 'fresh');
+        $this->actingAs($me);
+
+        // The Chat page: Livewire fills $conversation from ?c= before mount() opens it.
+        Livewire::withQueryParams([Chat::QUERY_CONVERSATION => $direct->ulid])
+            ->test(ChatWindow::class, ['conversation' => $direct->ulid])
+            ->assertSet('unreadMarker', $first->id)
+            ->assertSeeHtml('data-fchat-unread')
+            ->assertDispatched(ChatWindow::EVENT_SCROLL, unread: true);
     }
 }
