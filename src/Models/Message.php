@@ -26,12 +26,14 @@ use Illuminate\Support\Str;
  * @property string $body
  * @property string|null $reference_type
  * @property int|null $reference_id
+ * @property int|null $reply_to_id
  * @property list<int>|null $mentions
  * @property Carbon|null $edited_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Model|null $author
  * @property-read Conversation $conversation
+ * @property-read Message|null $replyTo
  * @property-read \Illuminate\Database\Eloquent\Collection<int, MessageReaction> $reactions
  */
 class Message extends Model
@@ -87,6 +89,16 @@ class Message extends Model
     public function conversation(): BelongsTo
     {
         return $this->belongsTo(ChatConfig::conversationModel(), 'conversation_id');
+    }
+
+    /**
+     * The message this one answers (same conversation; ChatService checks it).
+     *
+     * @return BelongsTo<Message, $this>
+     */
+    public function replyTo(): BelongsTo
+    {
+        return $this->belongsTo(ChatConfig::messageModel(), 'reply_to_id');
     }
 
     /**

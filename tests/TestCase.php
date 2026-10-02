@@ -80,6 +80,9 @@ abstract class TestCase extends Orchestra
 
         $migration = include __DIR__.'/../database/migrations/create_filament_chat_tables.php.stub';
         $migration->up();
+
+        $reply = include __DIR__.'/../database/migrations/add_reply_to_filament_chat_messages.php.stub';
+        $reply->up();
     }
 
     /**

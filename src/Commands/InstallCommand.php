@@ -27,10 +27,17 @@ class InstallCommand extends Command
             $this->components->info('config/filament-chat.php already exists — kept.');
         }
 
-        if ($files->glob(database_path('migrations/*_create_filament_chat_tables.php')) === []) {
+        // laravel-package-tools maps an already published migration onto its existing file
+        // and vendor:publish without --force never overwrites, so only the missing ones are added.
+        $missing = array_filter(
+            ['create_filament_chat_tables', 'add_reply_to_filament_chat_messages'],
+            fn (string $name): bool => $files->glob(database_path("migrations/*_{$name}.php")) === [],
+        );
+
+        if ($missing !== []) {
             $this->call('vendor:publish', ['--tag' => 'filament-chat-migrations']);
         } else {
-            $this->components->info('The chat migration is already published — kept.');
+            $this->components->info('The chat migrations are already published — kept.');
         }
 
         if ($this->option('skill')) {

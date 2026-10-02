@@ -16,6 +16,7 @@ final readonly class MessageData
         public string $body,
         public ?string $referenceType = null,
         public ?int $referenceId = null,
+        public ?string $replyTo = null,
     ) {}
 
     /**
@@ -26,6 +27,7 @@ final readonly class MessageData
         $body = $data['body'] ?? null;
         $type = $data['reference_type'] ?? null;
         $id = $data['reference_id'] ?? null;
+        $replyTo = $data['reply_to'] ?? null;
 
         $type = is_string($type) && app(ChatManager::class)->references->get($type) !== null ? $type : null;
         $id = is_numeric($id) && (int) $id > 0 ? (int) $id : null;
@@ -35,6 +37,7 @@ final readonly class MessageData
             body: is_string($body) ? trim($body) : '',
             referenceType: $complete ? $type : null,
             referenceId: $complete ? $id : null,
+            replyTo: is_string($replyTo) && $replyTo !== '' ? $replyTo : null,
         );
     }
 }

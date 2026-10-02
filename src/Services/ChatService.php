@@ -46,8 +46,13 @@ class ChatService
 
         $mentions = $this->mentionsIn($conversation, $author, $data->body);
 
-        $message = DB::transaction(function () use ($conversation, $author, $data, $mentions): Message {
-            $message = $this->messages->create($conversation, $author, $data, $mentions);
+        // Only a message of this very conversation can be answered — the ulid comes from the client.
+        $replyTo = ChatConfig::replies() && $data->replyTo !== null
+            ? $this->messages->findInConversation($conversation, $data->replyTo)
+            : null;
+
+        $message = DB::transaction(function () use ($conversation, $author, $data, $mentions, $replyTo): Message {
+            $message = $this->messages->create($conversation, $author, $data, $mentions, $replyTo?->id);
             $this->conversations->touchLastMessage($conversation, $message);
             $this->conversations->markRead($conversation, $author, $message->id);
 

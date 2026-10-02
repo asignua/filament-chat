@@ -22,7 +22,7 @@ class MessageRepository
     /**
      * @param list<int> $mentions
      */
-    public function create(Conversation $conversation, Model $author, MessageData $data, array $mentions = []): Message
+    public function create(Conversation $conversation, Model $author, MessageData $data, array $mentions = [], ?int $replyToId = null): Message
     {
         $body = $this->validBody($data->body, $data->referenceType !== null);
 
@@ -34,6 +34,7 @@ class MessageRepository
         $message->reference_type = $data->referenceType;
         $message->reference_id = $data->referenceId;
         $message->mentions = $mentions !== [] ? $mentions : null;
+        $message->reply_to_id = $replyToId;
         $message->save();
 
         return $message;
@@ -82,7 +83,7 @@ class MessageRepository
     {
         return $conversation->messages()
             ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
-            ->with('author')
+            ->with(['author', 'replyTo.author'])
             ->orderByDesc('id')
             ->limit($limit)
             ->get()

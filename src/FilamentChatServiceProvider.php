@@ -42,7 +42,7 @@ class FilamentChatServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasViews()
             ->hasTranslations()
-            ->hasMigration('create_filament_chat_tables')
+            ->hasMigrations(['create_filament_chat_tables', 'add_reply_to_filament_chat_messages'])
             ->hasCommand(InstallCommand::class);
     }
 
