@@ -2,6 +2,15 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.2.0
+
+- Replies: quote a message, jump to the original (loads earlier messages if needed). New migration `add_reply_to_filament_chat_messages` — see "Upgrading from 1.1". Switch: `features.replies` / `->replies()`.
+- Avatars in group feeds (last message of a series), the @ list and the member line; `->avatarUsing()`; switch `features.avatars` / `->avatars()`.
+- «New messages» line where the unread part starts; the feed opens there.
+- Fix: the @ list showed only the first six members.
+- Fix: the conversation list previewed messages written after a member left a group; now only up to leaving.
+- Translations for the new strings in all ten languages.
+
 ## v1.1.1
 
 - Author email updated in `composer.json`.

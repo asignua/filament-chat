@@ -5,8 +5,8 @@ description: Use when installing, configuring or debugging asignua/filament-chat
 
 # Filament Chat (asignua/filament-chat)
 
-Team chat inside a Filament 5 panel: direct messages, groups, @mentions, editing, reactions, read
-receipts, a pinnable slide-over, unread badges, bell notifications, and messages that reference
+Team chat inside a Filament 5 panel: direct messages, groups, @mentions, replies, avatars, editing, reactions, read
+receipts, a «New messages» line, a pinnable slide-over, unread badges, bell notifications, and messages that reference
 panel records. Real-time over Laravel Echo (Reverb/Pusher/Ably) or polling.
 
 Source of truth for options: `vendor/asignua/filament-chat/config/filament-chat.php` (every key is
@@ -53,6 +53,8 @@ Every config key has a plugin setter; the plugin wins. Closures exist only on th
 | display name | `users.name_attribute` | `->userName(fn ($u) => …)` |
 | conversation search columns | `users.search_columns` | — |
 | private channel key (hide ids) | `users.broadcast_key` (e.g. `ulid`) | — |
+| avatars / replies | `features.avatars` / `features.replies` | `->avatars(false)` / `->replies(false)` |
+| avatar URL (null = initials) | — (default: Filament's avatar provider) | `->avatarUsing(fn ($u): ?string => …)` |
 | groups / reactions / mentions / ✓✓ | `features.groups` / `.reactions` / `.mentions` / `.read_receipts` | `->groups(false)` … `->readReceipts(false)` |
 | editing, time window | `features.editing.enabled` / `.window` (minutes) | `->editing(true, 15)` |
 | page size, max length | `messages.page_size` / `.max_length` | — |
@@ -64,6 +66,15 @@ Every config key has a plugin setter; the plugin wins. Closures exist only on th
 | dock, pin, tab badge | `ui.dock` / `.pinnable` / `.tab_badge` | `->dock(false)` / `->pinnable(false)` / `->tabBadge(false)` |
 | colour, slug, navigation | `ui.color` / `.slug` / `.navigation.*` | `->color()` / `->slug()` / `->navigationGroup()` / `->navigationSort()` / `->navigationIcon()` |
 | own models / table names | `models.*` / `tables.*` | — (change tables BEFORE migrating) |
+
+## Upgrading from 1.1
+
+1.2 adds the second migration `add_reply_to_filament_chat_messages` (`reply_to_id`, replies):
+`php artisan vendor:publish --tag=filament-chat-migrations && php artisan migrate` (or
+`filament-chat:install --migrate`; a 1.0/1.1 migration already published is left untouched). With
+renamed/own tables add `reply_to_id` (nullable FK to the messages table, nullOnDelete) by hand.
+Switching `features.replies` off keeps stored quotes visible. Avatars and the «New messages» line
+need no migration.
 
 ## Record references
 
@@ -149,6 +160,7 @@ notifications) — never `Message::create()`:
 $chat = app(ChatService::class);
 $c = $chat->startDirect($from, $to);                 // or ->createGroup(new GroupData('Title', [$id, ...]), $creator)
 $chat->send($c, $from, MessageData::fromArray(['body' => 'Hi @Olga Green', 'reference_type' => 'order', 'reference_id' => 42]));
+$chat->send($c, $to, MessageData::fromArray(['body' => 'Done', 'reply_to' => $message->ulid])); // a reply; a message of another conversation is dropped
 $chat->edit($c, $message, $author, 'New text');
 $chat->react($c, $message, $user, Reaction::Like);
 ```

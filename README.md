@@ -25,6 +25,7 @@ Works with or without a websocket server: turn real-time on with one environment
 - [Real-time delivery](#real-time-delivery) — Reverb, Docker, nginx, Pusher, polling
 - [Notifications](#notifications)
 - [Translations](#translations) — your language, your own wording
+- [Upgrading from 1.1](#upgrading-from-11)
 - [Customising](#customising) — own models, audit trail, events
 - [Integration notes](#integration-notes) — custom themes, panels built by a package, several panels
 - [Troubleshooting](#troubleshooting)
@@ -58,6 +59,9 @@ Dark mode:
 | **Editing** | ✏️ on your message or ↑ in an empty composer; edited messages are marked. Optional time window. |
 | **Reactions** | Six emoji, one per person per message. |
 | **Read receipts** | ✓ sent, ✓✓ read — in a group, read by every active member (the hint lists who has not). |
+| **Replies** | ↩ on a message quotes it above your answer; a click on the quote jumps to the original, loading earlier messages if needed. |
+| **Avatars** | Next to the last message of a series in groups, in the @ list and the member line. From Filament's avatar provider or `->avatarUsing()`; initials when there is no picture. |
+| **New messages** | Opening a conversation scrolls to a line where the unread part starts (up to five pages back, otherwise it opens at the bottom); sending your own message clears the line. |
 | **Record references** | Attach a record with a picker, by dropping a link to its page, or "Attach current" in the slide-over. |
 | **Where** | A full **Chat** page and a **top-bar button** with a slide-over; on wide screens the slide-over can be **pinned** as a split screen that stays open across pages. |
 | **Unread** | Counters in the navigation, on the button, in the browser tab title and on the favicon; a bell notification on the first unread message of a conversation and on every mention; a "Reply" toast. |
@@ -118,7 +122,10 @@ FilamentChatPlugin::make()
     // Who can be written to and added to groups. Default: everybody in the users table.
     ->users(fn (Builder $query) => $query->where('is_active', true)->whereHas('roles'))
     // How a person is called. Default: users.name_attribute, then Filament's HasName, then `name`.
-    ->userName(fn (User $user): string => "{$user->first_name} {$user->last_name}"),
+    ->userName(fn (User $user): string => "{$user->first_name} {$user->last_name}")
+    // A person's avatar URL; null — initials. Default: Filament's avatar provider
+    // (HasAvatar::getFilamentAvatarUrl(), the `avatar_url` attribute, then the panel's default provider).
+    ->avatarUsing(fn (User $user): ?string => $user->profile_photo_url),
 ```
 
 ```php
@@ -139,6 +146,8 @@ FilamentChatPlugin::make()
 | `features.reactions` | `->reactions(false)` | `true` | no emoji picker or chips; the server refuses reactions |
 | `features.mentions` | `->mentions(false)` | `true` | no `@` autocomplete, nothing highlighted or notified |
 | `features.read_receipts` | `->readReceipts(false)` | `true` | no ✓ / ✓✓ |
+| `features.avatars` | `->avatars(false)` | `true` | no pictures or initials next to messages, in the @ list or the member line |
+| `features.replies` | `->replies(false)` | `true` | no ↩ button and no new quotes; quotes already stored stay visible |
 | `features.editing.enabled` / `.window` | `->editing(true, 15)` | `true`, `null` | no editing; `window` — minutes after sending, `null` — any time |
 
 Switching a feature off never deletes data.
@@ -384,6 +393,29 @@ php artisan vendor:publish --tag=filament-chat-translations
 Translated the chat into your language? A pull request with `resources/lang/{locale}/chat.php` is
 very welcome.
 
+## Upgrading from 1.1
+
+1.2 adds one column (`reply_to_id`, replies) in a second migration, `add_reply_to_filament_chat_messages`.
+Publish and run it:
+
+```bash
+php artisan vendor:publish --tag=filament-chat-migrations   # the 1.0/1.1 migration you already have is kept
+php artisan migrate
+```
+
+(`php artisan filament-chat:install --migrate` does the same: it publishes whatever is missing.)
+
+Your own tables (`tables.*` renamed or created by your app)? Add the column yourself:
+
+```php
+Schema::table('chat_messages', function (Blueprint $table): void {
+    $table->foreignId('reply_to_id')->nullable()->constrained('chat_messages')->nullOnDelete();
+});
+```
+
+Avatars and the "New messages" line need no migration. Don't want avatars or replies? Switch them off
+(`features.avatars`, `features.replies`) — stored quotes stay visible either way.
+
 ## Customising
 
 ### Your own models and tables
@@ -427,6 +459,12 @@ $chat->send($conversation, $me, MessageData::fromArray([
     'body' => 'Please check @Olga Green',
     'reference_type' => 'order',
     'reference_id' => $order->id,
+]));
+
+// A reply: the ulid of a message in the same conversation (a foreign one is dropped).
+$chat->send($conversation, $colleague, MessageData::fromArray([
+    'body' => 'Done',
+    'reply_to' => $message->ulid,
 ]));
 ```
 
