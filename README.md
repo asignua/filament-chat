@@ -5,6 +5,7 @@
 [![Tests](https://img.shields.io/github/actions/workflow/status/asignua/filament-chat/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/asignua/filament-chat/actions/workflows/tests.yml)
 [![Total Downloads](https://img.shields.io/packagist/dt/asignua/filament-chat.svg?style=flat-square)](https://packagist.org/packages/asignua/filament-chat)
 [![License](https://img.shields.io/packagist/l/asignua/filament-chat.svg?style=flat-square)](https://github.com/asignua/filament-chat/blob/main/LICENSE.md)
+[![Plumb score](https://plumbphp.dev/badges/asignua/filament-chat/composite.svg)](https://plumbphp.dev/asignua/filament-chat)
 
 <img class="filament-hidden" src="https://raw.githubusercontent.com/asignua/filament-chat/v1.0.0/art/cover.jpg" alt="Filament Chat">
 
