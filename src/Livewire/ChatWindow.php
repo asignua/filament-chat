@@ -81,6 +81,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     /** Livewire event: attach a record to the message being written. */
     public const string EVENT_ATTACH = 'filament-chat-attach';
 
+    /** Browser event: scroll to a message and flash it (a click on a quote). */
+    public const string EVENT_HIGHLIGHT = 'filament-chat-highlight';
+
     #[Locked]
     public bool $compact = false;
 
@@ -97,6 +100,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
     /** ulid of the own message being edited in the composer. */
     public ?string $editing = null;
+
+    /** ulid of the message being answered. */
+    public ?string $replyingTo = null;
 
     public int $limit = 0;
 
@@ -172,6 +178,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             $this->limit = ChatConfig::pageSize();
             $this->clearReference();
             $this->cancelEdit();
+            $this->cancelReply();
         }
 
         $this->conversation = $record->ulid;
@@ -254,6 +261,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
                 'body' => $this->body,
                 'reference_type' => $this->referenceType,
                 'reference_id' => $this->referenceId,
+                'reply_to' => $this->replyingTo,
             ]));
         } catch (InvalidArgumentException $e) {
             Notification::make()->title($e->getMessage())->danger()->send();
@@ -263,6 +271,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
         $this->body = '';
         $this->clearReference();
+        $this->cancelReply();
         $this->dispatch(self::EVENT_SCROLL);
         $this->dispatch(self::EVENT_SENT);
     }
@@ -309,7 +318,58 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $this->editing = $record->ulid;
         $this->body = $record->body;
         $this->clearReference();
+        $this->cancelReply();
         $this->dispatch(self::EVENT_EDIT, body: $record->body);
+    }
+
+    public function startReply(string $message): void
+    {
+        $conversation = $this->current();
+
+        if ($conversation === null || !ChatConfig::replies() || !Gate::allows(ConversationPolicy::SEND, $conversation)) {
+            return;
+        }
+
+        $record = app(MessageRepository::class)->findInConversation($conversation, $message);
+
+        if ($record === null) {
+            return;
+        }
+
+        $this->cancelEdit();
+        $this->replyingTo = $record->ulid;
+        $this->dispatch(self::EVENT_SENT); // the composer takes focus
+    }
+
+    public function cancelReply(): void
+    {
+        $this->replyingTo = null;
+    }
+
+    /**
+     * A click on a quote whose original is not in the feed yet: load up to it.
+     * Only what the person may see — whoever left a group, up to leaving.
+     */
+    public function showMessage(string $message): void
+    {
+        $conversation = $this->current();
+        $user = ChatUsers::current();
+        $record = $conversation !== null ? app(MessageRepository::class)->findInConversation($conversation, $message) : null;
+
+        if ($conversation === null || $user === null || $record === null) {
+            return;
+        }
+
+        $leftAt = app(ConversationRepository::class)->participant($conversation, $user)?->left_at;
+
+        if ($leftAt !== null && $record->created_at?->greaterThan($leftAt)) {
+            return;
+        }
+
+        $count = app(MessageRepository::class)->countFrom($conversation, $record->id, $leftAt);
+        $page = ChatConfig::pageSize();
+        $this->limit = max($this->limit, (int) ceil($count / $page) * $page);
+        $this->dispatch(self::EVENT_HIGHLIGHT, message: $record->ulid);
     }
 
     /**
@@ -565,6 +625,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $messages = $this->loadMessages($current);
         $references = app(ChatManager::class)->references;
         $canSend = $current !== null && Gate::allows(ConversationPolicy::SEND, $current);
+        $replying = $current !== null && $this->replyingTo !== null
+            ? app(MessageRepository::class)->findInConversation($current, $this->replyingTo)
+            : null;
         $names = [];
 
         foreach ($current->participants ?? [] as $participant) {
@@ -599,6 +662,8 @@ class ChatWindow extends Component implements HasActions, HasSchemas
                 array_values($messages->map(fn (Message $message): int => $message->id)->all()),
             ),
             'canSend' => $canSend,
+            'replying' => $replying,
+            'repliesOn' => ChatConfig::replies(),
             // Own messages that may still be edited — the policy rule without a query per message.
             'editable' => $canSend && $user !== null
                 ? array_values($messages->filter(fn (Message $message): bool => MessagePolicy::editableBy($message, $user))->map(fn (Message $message): int => $message->id)->all())

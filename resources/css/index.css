@@ -31,6 +31,24 @@
     color: var(--color-300);
 }
 
+.fchat-quote {
+    border-color: var(--color-500);
+}
+
+.fchat-quote .fchat-quote-author {
+    color: var(--color-700);
+}
+
+.fchat-quote .fchat-quote-author:where(.dark, .dark *) {
+    color: var(--color-300);
+}
+
+/* A quote was clicked: the original's bubble glows for a moment. */
+.fchat-flash .rounded-2xl {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary-500) 45%, transparent);
+    transition: box-shadow 0.3s;
+}
+
 .fchat-author {
     color: var(--color-700);
 }

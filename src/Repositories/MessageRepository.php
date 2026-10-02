@@ -118,4 +118,16 @@ class MessageRepository
     {
         return $conversation->messages()->where('ulid', $ulid)->with('author')->first();
     }
+
+    /**
+     * How many messages, from this one to the newest (within `$until`) — how much
+     * the feed must load for the message to be in it.
+     */
+    public function countFrom(Conversation $conversation, int $messageId, ?Carbon $until = null): int
+    {
+        return $conversation->messages()
+            ->where('id', '>=', $messageId)
+            ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
+            ->count();
+    }
 }

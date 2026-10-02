@@ -201,6 +201,13 @@
                 x-data
                 x-init="$el.scrollTop = $el.scrollHeight"
                 x-on:{{ ChatWindow::EVENT_SCROLL }}.window="$nextTick(() => $el.scrollTop = $el.scrollHeight)"
+                x-on:{{ ChatWindow::EVENT_HIGHLIGHT }}.window="$nextTick(() => {
+                    const target = document.getElementById('fchat-msg-' + $event.detail.message)
+                    if (! target) return
+                    target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                    target.classList.add('fchat-flash')
+                    setTimeout(() => target.classList.remove('fchat-flash'), 1500)
+                })"
             >
                 @if ($hasOlder)
                     <div class="pb-2 text-center">
@@ -261,6 +268,29 @@
                                         {{ $message->author ? ChatUsers::name($message->author) : __('filament-chat::chat.unknown_user') }}
                                     </div>
                                 @endif
+                                @if ($message->reply_to_id !== null)
+                                    @php $original = $message->replyTo; @endphp
+                                    <button
+                                        type="button"
+                                        data-fchat-quote="{{ $original?->ulid }}"
+                                        @if ($original)
+                                            x-on:click="
+                                                const target = document.getElementById('fchat-msg-{{ $original->ulid }}')
+                                                if (target) { $dispatch('{{ ChatWindow::EVENT_HIGHLIGHT }}', { message: '{{ $original->ulid }}' }) } else { $wire.showMessage('{{ $original->ulid }}') }
+                                            "
+                                        @endif
+                                        @class([
+                                            'mb-1 block w-full rounded-md border-s-2 px-2 py-1 text-start text-xs',
+                                            'border-white/70 bg-white/15 text-white/90' => $mine,
+                                            'fi-color-'.$color.' fchat-quote border-current bg-white/60 dark:bg-white/5' => !$mine,
+                                        ])
+                                    >
+                                        <span @class(['block truncate font-semibold', 'fchat-quote-author' => !$mine])>
+                                            {{ $original?->author ? ChatUsers::name($original->author) : __('filament-chat::chat.unknown_user') }}
+                                        </span>
+                                        <span class="block truncate opacity-80">{{ $original?->preview(100) ?? __('filament-chat::chat.reply_unknown') }}</span>
+                                    </button>
+                                @endif
                                 @if (trim($message->body) !== '')
                                     <div class="wrap-anywhere break-words">{{ ChatText::toHtml($message->body, array_intersect_key($names, array_flip($message->mentionIds())), $me?->getKey()) }}</div>
                                 @endif
@@ -311,6 +341,16 @@
                         </div>
                         @if ($canSend)
                             <div class="flex shrink-0 items-center">
+                                @if ($repliesOn)
+                                    <button
+                                        type="button"
+                                        wire:click="startReply('{{ $message->ulid }}')"
+                                        title="{{ __('filament-chat::chat.reply') }}"
+                                        class="rounded-full p-1 text-gray-400 opacity-0 transition group-hover/msg:opacity-100 hover:text-gray-600 focus:opacity-100 dark:hover:text-gray-200 [@media(hover:none)]:opacity-60"
+                                    >
+                                        <x-filament::icon icon="heroicon-m-arrow-uturn-left" class="size-4" />
+                                    </button>
+                                @endif
                                 @if (in_array($message->id, $editable, true))
                                     <button
                                         type="button"
@@ -362,6 +402,19 @@
 
             @if ($canSend)
                 <form wire:key="fchat-composer-form" wire:submit="send" class="space-y-2 border-t border-gray-200 p-3 dark:border-white/10">
+                    @if ($replying && !$editing)
+                        <div wire:key="fchat-replying" class="flex items-center gap-2 rounded-lg border-s-2 border-primary-500 bg-gray-50 px-2 py-1 text-xs dark:bg-white/5">
+                            <x-filament::icon icon="heroicon-m-arrow-uturn-left" class="size-4 shrink-0 text-primary-600 dark:text-primary-400" />
+                            <div class="min-w-0 flex-1">
+                                <div class="text-primary-600 dark:text-primary-400">
+                                    {{ __('filament-chat::chat.replying_to') }}
+                                    <span class="font-semibold">{{ $replying->author ? ChatUsers::name($replying->author) : __('filament-chat::chat.unknown_user') }}</span>
+                                </div>
+                                <div class="truncate text-gray-500 dark:text-gray-400">{{ $replying->preview(100) }}</div>
+                            </div>
+                            <x-filament::icon-button icon="heroicon-m-x-mark" color="gray" size="sm" wire:click="cancelReply" :label="__('filament-chat::chat.cancel_reply')" />
+                        </div>
+                    @endif
                     @if ($editing)
                         <div wire:key="fchat-editing" class="flex items-center gap-2 text-xs text-primary-600 dark:text-primary-400">
                             <x-filament::icon icon="heroicon-m-pencil-square" class="size-4 shrink-0" />
@@ -464,6 +517,7 @@
                                     if (event.key === 'Enter' && ! event.shiftKey) { event.preventDefault(); this.$wire.send(); return }
                                     if (event.key === 'ArrowUp' && this.$refs.input.value === '') { event.preventDefault(); this.$wire.editLast(); return }
                                     if (event.key === 'Escape' && this.$wire.editing) { event.preventDefault(); event.stopPropagation(); this.$wire.cancelEdit() }
+                                    if (event.key === 'Escape' && this.$wire.replyingTo) { event.preventDefault(); event.stopPropagation(); this.$wire.cancelReply() }
                                 },
                             }"
                             x-on:{{ ChatWindow::EVENT_SENT }}.window="$nextTick(() => { resize(); $refs.input.focus() })"
