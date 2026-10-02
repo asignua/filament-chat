@@ -144,4 +144,16 @@ class MessageRepository
             ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
             ->count();
     }
+
+    /**
+     * The latest message up to a moment — what someone who left a group last saw.
+     */
+    public function lastUntil(Conversation $conversation, Carbon $until): ?Message
+    {
+        return $conversation->messages()
+            ->where('created_at', '<=', $until)
+            ->with('author')
+            ->orderByDesc('id')
+            ->first();
+    }
 }

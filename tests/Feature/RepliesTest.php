@@ -155,12 +155,12 @@ class RepliesTest extends TestCase
         $after = $this->send($group, $olga, 'after I left');
         $this->actingAs($me);
 
-        // The list preview leak is covered by the left-group preview test.
         Livewire::test(ChatWindow::class)
             ->call('open', $group->ulid)
             ->call('showMessage', $after->ulid)
             ->assertNotDispatched(ChatWindow::EVENT_HIGHLIGHT)
-            ->assertSet('limit', ChatConfig::pageSize());
+            ->assertSet('limit', ChatConfig::pageSize())
+            ->assertDontSee('after I left');
     }
 
     public function test_quote_of_a_deleted_author_renders(): void

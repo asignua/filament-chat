@@ -315,4 +315,23 @@ class ChatWindowTest extends TestCase
             ->assertSee('fchat-pinned', false)
             ->assertSee('window.filamentChatBadge', false);
     }
+
+    public function test_the_list_does_not_preview_messages_written_after_i_left(): void
+    {
+        $me = $this->user();
+        $olga = $this->user(['name' => 'Olga']);
+        $ivan = $this->user(['name' => 'Ivan']);
+        $group = $this->group($olga, 'Team', $me, $ivan);
+        $this->send($group, $olga, 'Visible before leaving');
+        app(ChatService::class)->leave($group, $me);
+        $this->travel(1)->minutes();
+        $this->send($group, $olga, 'Written after I left');
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)
+            ->assertSee('Visible before leaving')
+            ->assertDontSee('Written after I left')
+            ->call('open', $group->ulid)
+            ->assertDontSee('Written after I left');
+    }
 }

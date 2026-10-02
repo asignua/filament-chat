@@ -67,7 +67,7 @@
                 @php
                     $count = $unread[$item->id] ?? 0;
                     $counterpart = $item->counterpartFor($me);
-                    $last = $item->latestMessage;
+                    $last = array_key_exists($item->id, $previews) ? $previews[$item->id] : $item->latestMessage;
                 @endphp
                 <li wire:key="conv-{{ $item->ulid }}">
                     <button

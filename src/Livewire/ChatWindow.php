@@ -682,6 +682,19 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $replying = $current !== null && $this->replyingTo !== null
             ? app(MessageRepository::class)->findInConversation($current, $this->replyingTo)
             : null;
+        // Groups I left: preview only what I could see — the last message before leaving.
+        $previews = [];
+
+        $myId = $user?->getKey();
+
+        foreach ($myId !== null ? $conversations : [] as $item) {
+            $leftAt = $item->participants->firstWhere('user_id', $myId)?->left_at;
+
+            if ($leftAt !== null) {
+                $previews[$item->id] = app(MessageRepository::class)->lastUntil($item, $leftAt);
+            }
+        }
+
         $names = [];
 
         foreach ($current->participants ?? [] as $participant) {
@@ -703,6 +716,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         return view('filament-chat::livewire.chat-window', [
             'me' => $user,
             'conversations' => $conversations,
+            'previews' => $previews,
             'unread' => $user !== null ? app(ConversationRepository::class)->unreadByConversation($user) : [],
             'current' => $current,
             'messages' => $messages,
