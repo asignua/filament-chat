@@ -62,7 +62,7 @@ Dark mode:
 | **Where** | A full **Chat** page and a **top-bar button** with a slide-over; on wide screens the slide-over can be **pinned** as a split screen that stays open across pages. |
 | **Unread** | Counters in the navigation, on the button, in the browser tab title and on the favicon; a bell notification on the first unread message of a conversation and on every mention; a "Reply" toast. |
 | **Privacy** | A conversation is visible to its members only — admins included. Messages are never deleted. |
-| **Languages** | English and Ukrainian; [add yours](#translations). |
+| **Languages** | English, Ukrainian, German, Spanish, French, Italian, Dutch, Polish, Brazilian Portuguese, Turkish; [add yours](#translations). |
 
 Every feature can be switched off.
 
