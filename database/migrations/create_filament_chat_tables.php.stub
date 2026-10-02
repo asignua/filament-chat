@@ -83,7 +83,7 @@ return new class extends Migration
     private function usersTable(): string
     {
         /** @var class-string<\Illuminate\Database\Eloquent\Model> $model */
-        $model = config('filament-chat.user_model') ?? config('auth.providers.users.model');
+        $model = config('filament-chat.users.model') ?? config('auth.providers.users.model');
 
         return (new $model)->getTable();
     }

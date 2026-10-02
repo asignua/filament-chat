@@ -2,6 +2,10 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.2.1
+
+- Fix: the install migration read `filament-chat.user_model`, a key the config never defined, so a custom `users.model` was ignored and the chat tables' user foreign keys pointed at `auth.providers.users.model`'s table. It now reads `filament-chat.users.model`. Apps that already ran the migration are unaffected unless their chat users live in a different table than the auth model — then check the foreign keys.
+
 ## v1.2.0
 
 - Replies: quote a message, jump to the original (loads earlier messages if needed). New migration `add_reply_to_filament_chat_messages` — see "Upgrading from 1.1". Switch: `features.replies` / `->replies()`.
