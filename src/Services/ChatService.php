@@ -172,8 +172,17 @@ class ChatService
         return $conversation;
     }
 
+    /**
+     * Rename a group and replace its members. Does NOT check who asks — the
+     * caller authorizes first: `Gate::allows('update', $conversation)` (the
+     * creator, while still a member).
+     */
     public function updateGroup(Conversation $conversation, GroupData $data): Conversation
     {
+        if (!ChatConfig::groups()) {
+            throw new InvalidArgumentException(__('filament-chat::chat.error_groups_off'));
+        }
+
         // Whoever was removed must see the change too — notify members before and after.
         $before = $this->conversations->activeMemberKeys($conversation);
 
@@ -184,6 +193,10 @@ class ChatService
         return $conversation;
     }
 
+    /**
+     * `$user` leaves the group. Acts on whoever is passed — authorize with
+     * `ConversationPolicy::LEAVE` when the user comes from a request.
+     */
     public function leave(Conversation $conversation, Model $user): void
     {
         $this->conversations->leave($conversation, $user);

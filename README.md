@@ -473,7 +473,20 @@ $chat->send($conversation, $colleague, MessageData::fromArray([
 ]));
 ```
 
-Always go through `ChatService` — it checks membership, stores mentions, broadcasts and notifies.
+Always go through `ChatService` — it stores mentions, broadcasts and notifies, and checks membership
+where a message is involved (`send`, `edit`, `react`). Group management does **not** check who asks:
+`updateGroup()` changes any group it is given and `leave()` acts on the user passed in. Authorize
+before calling them, as the chat's own actions do:
+
+```php
+use Asignua\FilamentChat\Policies\ConversationPolicy;
+
+abort_unless(Gate::allows('update', $conversation), 403);            // the creator, still a member
+$chat->updateGroup($conversation, GroupData::fromArray($data));
+
+abort_unless(Gate::allows(ConversationPolicy::LEAVE, $conversation), 403);
+$chat->leave($conversation, auth()->user());
+```
 
 ## Integration notes
 

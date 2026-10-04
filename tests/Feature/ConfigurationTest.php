@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat\Tests\Feature;
 
+use Asignua\FilamentChat\Data\GroupData;
 use Asignua\FilamentChat\Enums\Reaction;
 use Asignua\FilamentChat\Events\ChatUpdated;
 use Asignua\FilamentChat\FilamentChatPlugin;
@@ -31,6 +32,22 @@ class ConfigurationTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $this->group($me, 'Team', $this->user());
+    }
+
+    public function test_with_groups_off_an_existing_group_cannot_be_changed(): void
+    {
+        $me = $this->user();
+        $colleague = $this->user();
+        $group = $this->group($me, 'Team', $colleague);
+        config(['filament-chat.features.groups' => false]);
+
+        try {
+            app(ChatService::class)->updateGroup($group, new GroupData('Renamed', [$colleague->id]));
+            $this->fail('A group was changed while groups are off.');
+        } catch (InvalidArgumentException) {
+        }
+
+        $this->assertSame('Team', $group->refresh()->title);
     }
 
     public function test_reactions_can_be_turned_off(): void
