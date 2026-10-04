@@ -128,7 +128,7 @@ class ChatDock extends Component
 
         Notification::make()
             ->title(NewMessageNotification::title($conversation, $message))
-            ->body($message->preview())
+            ->body(NewMessageNotification::body($message))
             ->icon(Chat::icon())
             ->actions([
                 Action::make('reply')

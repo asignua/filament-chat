@@ -38,7 +38,7 @@ class MentionNotification extends Notification
     {
         return PanelNotification::make()
             ->title(self::title($this->conversation, $this->message))
-            ->body($this->message->preview())
+            ->body(NewMessageNotification::body($this->message))
             ->icon('heroicon-o-at-symbol')
             ->actions([
                 Action::make('open')
@@ -49,12 +49,17 @@ class MentionNotification extends Notification
             ->getDatabaseMessage();
     }
 
+    /**
+     * Ready for Filament: it renders the title as HTML (sanitized, but links,
+     * images and inline styles survive), so the user-supplied name and group
+     * title are escaped — they must stay plain text, as in the feed.
+     */
     public static function title(Conversation $conversation, Message $message): string
     {
-        $who = $message->author !== null ? ChatUsers::name($message->author) : __('filament-chat::chat.unknown_user');
+        $who = e($message->author !== null ? ChatUsers::name($message->author) : __('filament-chat::chat.unknown_user'));
 
         return $conversation->isGroup()
-            ? __('filament-chat::chat.mention_group_title', ['who' => $who, 'title' => (string) $conversation->title])
+            ? __('filament-chat::chat.mention_group_title', ['who' => $who, 'title' => e((string) $conversation->title)])
             : __('filament-chat::chat.mention_title', ['who' => $who]);
     }
 }
