@@ -232,6 +232,10 @@ With "all resources" the key is the resource **slug** (`orders`, `activity-log/a
 renaming a slug loses the link of old messages (they show "record deleted"). Register a type
 explicitly where that matters.
 
+Only models with an **integer** primary key can be referenced (the message stores the id in an integer
+column). "All resources" skips models keyed by a UUID/ULID string, and registering one explicitly
+throws an `InvalidArgumentException`. A ULID used only as the route key (with an integer `id`) is fine.
+
 `'references' => ['enabled' => false]` turns references off completely.
 
 ### Who sees a referenced record

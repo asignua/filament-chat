@@ -195,6 +195,17 @@ final class ReferenceType
         return $this->resource;
     }
 
+    /**
+     * `reference_id` is an integer column: a model keyed by a UUID/ULID string
+     * cannot be referenced.
+     */
+    public function hasIntegerKey(): bool
+    {
+        $model = $this->model;
+
+        return in_array((new $model)->getKeyType(), ['int', 'integer'], true);
+    }
+
     public function matches(Model $record): bool
     {
         return $record instanceof $this->model;

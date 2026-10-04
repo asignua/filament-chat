@@ -4,6 +4,7 @@ All notable changes to `asignua/filament-chat` are documented here.
 
 ## Unreleased
 
+- Fix: references to models with a UUID/ULID string key were stored under a wrong integer id or silently dropped. "All resources" now skips such models, and registering one explicitly throws an `InvalidArgumentException` naming it (README, Record references).
 - `ChatService::updateGroup()` refuses to work with groups turned off, like `createGroup()`. README: group management in `ChatService` does not authorize the caller — check `ConversationPolicy` (`update`, `leave`) first.
 - Hardening: `ChatWindow::$limit` is `#[Locked]` — the browser could set any page size and make every render and poll load the whole conversation. Marking as read now fetches only the newest message id (`MessageRepository::latestId()`), not the loaded page.
 - Performance: the feed loads the records its messages reference in one query per type (it used to run a query and a view check per message on every render and poll). New `ReferenceRegistry::presentMany()` and `ReferenceType::findMany()`; the `chat-window` view now gets `$messageReferences` keyed by message id — a published copy of the view keeps working, but update it to use that variable to get the speed-up.

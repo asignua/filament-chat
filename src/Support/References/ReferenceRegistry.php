@@ -9,6 +9,7 @@ use Asignua\FilamentChat\Support\ChatManager;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 
 /**
  * The record types messages can point at, registered by the plugin
@@ -34,6 +35,14 @@ final class ReferenceRegistry
             $this->expanded = false;
 
             return;
+        }
+
+        if (!$type->hasIntegerKey()) {
+            throw new InvalidArgumentException(sprintf(
+                'Chat reference "%s": %s has a non-integer key; messages store the record id as an integer.',
+                $type->getKey(),
+                $type->getModel(),
+            ));
         }
 
         $this->types[$type->getKey()] = $type;
@@ -218,7 +227,12 @@ final class ReferenceRegistry
                 continue;
             }
 
-            $this->types[$key] = ReferenceType::resource($resource, $key);
+            $type = ReferenceType::resource($resource, $key);
+
+            // reference_id is an integer: UUID/ULID-keyed records are left out.
+            if ($type->hasIntegerKey()) {
+                $this->types[$key] = $type;
+            }
         }
     }
 }

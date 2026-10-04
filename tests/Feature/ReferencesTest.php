@@ -14,9 +14,11 @@ use Asignua\FilamentChat\Support\References\ReferenceType;
 use Asignua\FilamentChat\Tests\TestCase;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Livewire\Livewire;
 use Workbench\App\Filament\Resources\Notes\NoteResource;
 use Workbench\App\Filament\Resources\Notes\Pages\EditNote;
+use Workbench\App\Filament\Resources\Tokens\TokenResource;
 use Workbench\App\Filament\Resources\Users\UserResource;
 use Workbench\App\Models\Note;
 use Workbench\App\Models\User;
@@ -282,6 +284,20 @@ class ReferencesTest extends TestCase
         $this->assertSame([], $fresh->all());
     }
 
+    public function test_models_without_an_integer_key_cannot_be_referenced(): void
+    {
+        config(['filament-chat.references.all_resources' => true, 'filament-chat.references.authorize' => 'resource']);
+        $this->actingAs($this->user());
+
+        // "All resources" leaves the UUID-keyed TokenResource out.
+        $this->assertSame(['note', 'users'], array_keys(app(ChatManager::class)->references->all()));
+        $this->assertNotContains('tokens', array_keys((new ReferenceRegistry)->all()));
+
+        // An explicit registration fails loudly instead of storing a wrong id.
+        $this->expectException(InvalidArgumentException::class);
+        (new ReferenceRegistry)->register(ReferenceType::resource(TokenResource::class));
+    }
+
     /**
      * @return array{type: string, id: int}|null
      */
@@ -346,7 +362,7 @@ class ReferencesTest extends TestCase
             ->assertNotified(__('filament-chat::chat.error_empty'));
 
         $text = $this->send($conversation, $me, 'text');
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         app(\Asignua\FilamentChat\Services\ChatService::class)->edit($conversation, $text, $me, '  ');
     }
 
