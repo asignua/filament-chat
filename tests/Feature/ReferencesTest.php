@@ -12,6 +12,8 @@ use Asignua\FilamentChat\Support\References\RecordUrlResolver;
 use Asignua\FilamentChat\Support\References\ReferenceRegistry;
 use Asignua\FilamentChat\Support\References\ReferenceType;
 use Asignua\FilamentChat\Tests\TestCase;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Workbench\App\Filament\Resources\Notes\NoteResource;
 use Workbench\App\Filament\Resources\Notes\Pages\EditNote;
@@ -49,6 +51,51 @@ class ReferencesTest extends TestCase
         $this->assertSame(__('filament-chat::chat.reference_hidden'), $hidden['label'] ?? null);
         $this->assertNull($hidden['url'] ?? null);
         $this->assertSame(__('filament-chat::chat.reference_deleted'), $deleted['label'] ?? null);
+    }
+
+    public function test_referenced_records_of_a_feed_are_loaded_in_one_query(): void
+    {
+        $me = $this->user();
+        $conversation = $this->direct($me, $this->user());
+        $this->actingAs($me);
+
+        foreach (range(1, 5) as $i) {
+            $this->send($conversation, $me, 'see '.$i, Note::query()->create(['title' => 'Note '.$i]));
+        }
+
+        $this->send($conversation, $me, 'again', Note::query()->where('title', 'Note 1')->sole());
+
+        $window = Livewire::test(ChatWindow::class)->call('open', $conversation->ulid);
+
+        $queries = 0;
+        DB::listen(function (QueryExecuted $query) use (&$queries): void {
+            $queries += (int) str_contains($query->sql, '"notes"');
+        });
+
+        $window->call('$refresh')->assertSee(['Note 1', 'Note 5']);
+
+        $this->assertSame(1, $queries);
+    }
+
+    public function test_presenting_many_keeps_hidden_and_deleted_records_apart(): void
+    {
+        $this->actingAs($this->user());
+        $mine = Note::query()->create(['title' => 'Mine']);
+        $foreign = Note::query()->create(['title' => 'Secret', 'owner_id' => $this->user()->id]);
+
+        $presented = app(ChatManager::class)->references->presentMany([
+            10 => ['note', $mine->id],
+            11 => ['note', $foreign->id],
+            12 => ['note', 999999],
+            13 => ['unknown', 1],
+            14 => [null, null],
+        ]);
+
+        $this->assertSame('Mine', $presented[10]['label'] ?? null);
+        $this->assertSame(__('filament-chat::chat.reference_hidden'), $presented[11]['label'] ?? null);
+        $this->assertSame(__('filament-chat::chat.reference_deleted'), $presented[12]['label'] ?? null);
+        $this->assertNull($presented[13]);
+        $this->assertNull($presented[14]);
     }
 
     public function test_record_page_urls_resolve_to_records(): void

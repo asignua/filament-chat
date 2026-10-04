@@ -115,7 +115,56 @@ final class ReferenceRegistry
             return null;
         }
 
-        $record = $type->find($id);
+        return $this->presentRecord($type, $type->find($id));
+    }
+
+    /**
+     * present() for a whole feed: one query per type, one view check per
+     * distinct record. Keys of the input are kept.
+     *
+     * @template TKey of array-key
+     *
+     * @param array<TKey, array{0: string|null, 1: int|string|null}> $references
+     *
+     * @return array<TKey, array{type: string, label: string, url: string|null, icon: BackedEnum|string, color: string}|null>
+     */
+    public function presentMany(array $references): array
+    {
+        $ids = [];
+
+        foreach ($references as [$key, $id]) {
+            if ($id !== null && $this->get($key) !== null) {
+                $ids[$key][$id] = $id;
+            }
+        }
+
+        $presented = [];
+
+        foreach ($ids as $key => $typeIds) {
+            $type = $this->get($key);
+
+            if ($type === null) {
+                continue;
+            }
+
+            $records = $type->findMany(array_values($typeIds));
+
+            foreach ($typeIds as $id) {
+                $presented[$key][$id] = $this->presentRecord($type, $records->get($id));
+            }
+        }
+
+        return array_map(
+            fn (array $reference): ?array => $reference[1] !== null ? ($presented[$reference[0]][$reference[1]] ?? null) : null,
+            $references,
+        );
+    }
+
+    /**
+     * @return array{type: string, label: string, url: string|null, icon: BackedEnum|string, color: string}
+     */
+    private function presentRecord(ReferenceType $type, ?Model $record): array
+    {
         $visible = $record !== null && $type->canView($record);
 
         return [

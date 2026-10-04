@@ -722,8 +722,14 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             }
         }
 
+        // One query per reference type for the whole feed, not one per message.
+        $messageReferences = $references->presentMany(
+            $messages->mapWithKeys(fn (Message $message): array => [$message->id => [$message->reference_type, $message->reference_id]])->all(),
+        );
+
         return view('filament-chat::livewire.chat-window', [
             'me' => $user,
+            'messageReferences' => $messageReferences,
             'conversations' => $conversations,
             'previews' => $previews,
             'unread' => $user !== null ? app(ConversationRepository::class)->unreadByConversation($user) : [],

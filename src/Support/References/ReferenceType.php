@@ -299,6 +299,24 @@ final class ReferenceType
     }
 
     /**
+     * Several records in one query, keyed by their primary key.
+     *
+     * @param list<int|string> $ids
+     *
+     * @return Collection<int|string, Model>
+     */
+    public function findMany(array $ids): Collection
+    {
+        if ($ids === []) {
+            return collect();
+        }
+
+        $model = $this->model;
+
+        return $model::query()->whereKey($ids)->get()->keyBy(fn (Model $record): int|string => $record->getKey());
+    }
+
+    /**
      * @return Collection<int, Model>
      */
     public function searchRecords(string $search, int $limit = 20): Collection

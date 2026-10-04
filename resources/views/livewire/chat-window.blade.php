@@ -232,7 +232,7 @@
                         $next = $messages[$loop->index + 1] ?? null;
                         $lastInSeries = $next === null || $next->user_id !== $message->user_id || ChatTime::date($next->created_at) !== $messageDay;
                         $withAvatar = $avatarsOn && $current->isGroup() && !$mine;
-                        $reference = app(\Asignua\FilamentChat\Support\ChatManager::class)->references->present($message->reference_type, $message->reference_id);
+                        $reference = $messageReferences[$message->id] ?? null;
                     @endphp
                     @if ($day !== $messageDay)
                         <div class="py-2 text-center text-xs text-gray-400" wire:key="day-{{ $messageDay }}">{{ $messageDay }}</div>
