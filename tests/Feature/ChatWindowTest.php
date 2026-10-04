@@ -12,6 +12,7 @@ use Asignua\FilamentChat\Pages\Chat;
 use Asignua\FilamentChat\Repositories\ConversationRepository;
 use Asignua\FilamentChat\Services\ChatService;
 use Asignua\FilamentChat\Tests\TestCase;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 class ChatWindowTest extends TestCase
@@ -28,6 +29,19 @@ class ChatWindowTest extends TestCase
             ->assertOk()
             ->assertSee('Hello from the test')
             ->assertSee('Olga');
+    }
+
+    public function test_page_size_cannot_be_set_from_the_browser(): void
+    {
+        $me = $this->user();
+        $conversation = $this->direct($me, $this->user());
+        $this->actingAs($me);
+
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+
+        Livewire::test(ChatWindow::class)
+            ->call('open', $conversation->ulid)
+            ->set('limit', 10_000_000);
     }
 
     public function test_opening_marks_read_and_sending_appends(): void

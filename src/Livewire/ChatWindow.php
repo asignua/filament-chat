@@ -118,6 +118,8 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     /** ulid of the message being answered. */
     public ?string $replyingTo = null;
 
+    /** How many latest messages the feed shows; grows on the server only (older pages, jumps). */
+    #[Locked]
     public int $limit = 0;
 
     /**
@@ -850,9 +852,16 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         }
 
         $user = ChatUsers::current();
-        $last = $this->loadMessages($conversation)->last();
 
-        if ($user !== null && $last !== null && app(ChatService::class)->markRead($conversation, $user, $last->id)) {
+        if ($user === null) {
+            return;
+        }
+
+        // Only the newest visible id is needed — not the whole page with its relations.
+        $leftAt = app(ConversationRepository::class)->participant($conversation, $user)?->left_at;
+        $lastId = app(MessageRepository::class)->latestId($conversation, $leftAt);
+
+        if ($lastId !== null && app(ChatService::class)->markRead($conversation, $user, $lastId)) {
             $this->dispatch(self::EVENT_READ)->to(ChatDock::class);
         }
     }

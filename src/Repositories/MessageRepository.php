@@ -95,6 +95,18 @@ class MessageRepository
             ->values();
     }
 
+    /**
+     * id of the newest message (up to `$until`, see latest()).
+     */
+    public function latestId(Conversation $conversation, ?Carbon $until = null): ?int
+    {
+        $id = $conversation->messages()
+            ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
+            ->max('id');
+
+        return $id !== null ? (int) $id : null;
+    }
+
     public function hasOlderThan(Conversation $conversation, int $messageId): bool
     {
         return $conversation->messages()->where('id', '<', $messageId)->exists();

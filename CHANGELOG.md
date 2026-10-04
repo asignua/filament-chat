@@ -4,6 +4,7 @@ All notable changes to `asignua/filament-chat` are documented here.
 
 ## Unreleased
 
+- Hardening: `ChatWindow::$limit` is `#[Locked]` — the browser could set any page size and make every render and poll load the whole conversation. Marking as read now fetches only the newest message id (`MessageRepository::latestId()`), not the loaded page.
 - Performance: the feed loads the records its messages reference in one query per type (it used to run a query and a view check per message on every render and poll). New `ReferenceRegistry::presentMany()` and `ReferenceType::findMany()`; the `chat-window` view now gets `$messageReferences` keyed by message id — a published copy of the view keeps working, but update it to use that variable to get the speed-up.
 - Fix: a member added back to a group got every message written while they were away as unread. Coming back now works like joining: the read pointer moves to the latest message. The history itself stays visible, as for any new member (README, Conversations).
 - Security: the bell and the "Reply" toast showed the message text, the sender name and the group title as HTML (Filament's sanitizer keeps links, images and inline styles), so a message could place an invisible full-screen link or a tracking image in the recipient's panel. They are now escaped and shown as plain text, as in the feed. `NewMessageNotification::title()` returns an escaped string; the new `NewMessageNotification::body()` gives the escaped preview.
