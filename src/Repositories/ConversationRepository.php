@@ -377,6 +377,8 @@ class ConversationRepository
             if (!$participant->isActive()) {
                 $participant->left_at = null;
                 $participant->joined_at = now();
+                // Coming back is joining again: what was written while away is history, not unread.
+                $participant->last_read_message_id = $conversation->messages()->max('id');
                 $participant->save();
             }
 

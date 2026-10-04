@@ -54,7 +54,7 @@ Dark mode:
 
 | | |
 |---|---|
-| **Conversations** | Direct messages (one per pair) and groups: title, members, leave. The creator manages a group; whoever leaves keeps the history up to that moment. |
+| **Conversations** | Direct messages (one per pair) and groups: title, members, leave. The creator manages a group; whoever leaves keeps the history up to that moment. A member added to a group — or added back after leaving — sees its whole history, including what was written while they were away; none of it counts as unread. |
 | **@mentions** | Type `@` for the list of members. A mention is highlighted (your own name stands out) and always rings the bell. |
 | **Editing** | ✏️ on your message or ↑ in an empty composer; edited messages are marked. Optional time window. |
 | **Reactions** | Six emoji, one per person per message. |

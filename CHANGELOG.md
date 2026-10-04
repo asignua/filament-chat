@@ -4,6 +4,7 @@ All notable changes to `asignua/filament-chat` are documented here.
 
 ## Unreleased
 
+- Fix: a member added back to a group got every message written while they were away as unread. Coming back now works like joining: the read pointer moves to the latest message. The history itself stays visible, as for any new member (README, Conversations).
 - Security: the bell and the "Reply" toast showed the message text, the sender name and the group title as HTML (Filament's sanitizer keeps links, images and inline styles), so a message could place an invisible full-screen link or a tracking image in the recipient's panel. They are now escaped and shown as plain text, as in the feed. `NewMessageNotification::title()` returns an escaped string; the new `NewMessageNotification::body()` gives the escaped preview.
 
 ## v1.2.1

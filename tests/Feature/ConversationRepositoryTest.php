@@ -133,6 +133,25 @@ class ConversationRepositoryTest extends TestCase
         $this->assertTrue($this->repository()->participant($group, $colleague)?->isActive());
     }
 
+    public function test_messages_written_while_away_are_not_unread_after_coming_back(): void
+    {
+        $me = $this->user();
+        $colleague = $this->user();
+        $other = $this->user();
+        $group = $this->group($me, 'Team', $colleague, $other);
+
+        $this->repository()->updateGroup($group, new GroupData('Team', [$other->id]));
+        $this->send($group, $other, 'while you were away');
+        $this->send($group, $me, 'and this too');
+        $this->repository()->updateGroup($group, new GroupData('Team', [$other->id, $colleague->id]));
+
+        $this->assertSame(0, $this->repository()->unreadTotalFor($colleague));
+
+        $this->send($group, $other, 'welcome back');
+
+        $this->assertSame(1, $this->repository()->unreadTotalFor($colleague));
+    }
+
     public function test_creator_stays_in_the_group_even_if_left_out_of_the_form(): void
     {
         $me = $this->user();
