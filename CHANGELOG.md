@@ -2,7 +2,7 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
-## Unreleased
+## v1.2.2 - 2026-10-05
 
 - Fix: references to models with a UUID/ULID string key were stored under a wrong integer id or silently dropped. "All resources" now skips such models, and registering one explicitly throws an `InvalidArgumentException` naming it (README, Record references).
 - `ChatService::updateGroup()` refuses to work with groups turned off, like `createGroup()`. README: group management in `ChatService` does not authorize the caller — check `ConversationPolicy` (`update`, `leave`) first.
