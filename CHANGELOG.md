@@ -14,6 +14,8 @@ Extension seams for add-on packages; the chat itself does not change (README, Ex
 - `MessageRepository` reads take an optional trailing `?Closure $scope`; new `findByUlid()`. If your app rebinds the repository and overrides these methods, add the parameter.
 - A message model with `SoftDeletes` (an add-on's subclass of `models.message`) is supported: deleted messages are not unread.
 - The composer dispatches browser events `filament-chat-typing` and `filament-chat-paste`.
+- `ChatWindow::conversationChanged(?string $from, ?string $to)` seam; `openMessage()` no longer scrolls to the unread line when it opens another conversation (the jump to the message wins); `saveEdit()` refuses a message that became a tombstone; the list preview of a group you left no longer applies `modifyMessagesQuery()` (a soft-deleted last message drops out, like for everyone else).
+- **Compatibility:** `ChatService::send()` has a new optional fourth parameter `?Closure $inTransaction` (an override must accept it); `MessageRepository` reads have a new trailing `?Closure $scope`. A **published** `pages/chat.blade.php` still mounts the stock window (it ignores `ui.window_component`), and a **published** `chat-window` view has none of the hook places — re-publish or merge them to use add-ons.
 - The slide-over mounts the window through `@livewire(ChatConfig::windowComponent(), …)` instead of `<livewire:filament-chat.chat-window>` — a published copy of `hooks/dock-panel` keeps working with the stock window; update it to pick up `window_component`.
 
 ## v1.2.2 - 2026-10-05

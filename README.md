@@ -514,6 +514,7 @@ in the slide-over. Override these protected methods (all optional):
 | `beforeMessageCommit(Message $message)` | no-op | runs inside the send transaction — store your own rows; a throw rolls the message back |
 | `afterMessageSent(Message $message)` | no-op | after a successful send from this window — reset your own composer state |
 | `modifyMessagesQuery(Builder $query): Builder` | `$query` | shapes **every** feed query (page, "load older", unread line, jumps, read pointer): eager-load, or `withTrashed()` for a message model with soft deletes |
+| `conversationChanged(?string $from, ?string $to)` | no-op | another conversation was opened (list, toast, search hit) or the person went back to the list (`$to` null): drop state that belongs to the old one — pending uploads, a draft. Ulids |
 | `isMessageTombstone(Message $message): bool` | `false` | `true` renders «Message deleted» instead of text, record, reactions, reply/edit/menu — also in a quote of it and in the conversation list preview |
 
 `openMessage(string $messageUlid)` (public) jumps to a message of **any** of the person's
@@ -531,14 +532,23 @@ use Asignua\FilamentChat\Enums\ChatHook;
 
 FilamentChatPlugin::make()
     ->renderHook(ChatHook::COMPOSER_TOOLS, fn (ChatWindow $window, array $context) => view('my.attach-button'))
-    ->renderHook(ChatHook::MESSAGE_MENU, fn (ChatWindow $window, array $context) => '<button wire:click="deleteMessage(\''.e($context['message']->ulid).'\')">…</button>');
+    ->renderHook(ChatHook::MESSAGE_MENU, fn (ChatWindow $window, array $context) => view('my.message-menu', ['message' => $context['message']]));
 ```
 
-The closure returns `Htmlable`, a `View`, an HTML string (trusted — escape user data with `e()`) or
+```blade
+{{-- resources/views/my/message-menu.blade.php — values go into JS through @js(), never through e() --}}
+<button type="button" wire:click="deleteMessage(@js($message->ulid))">…</button>
+```
+
+The closure returns `Htmlable`, a `View`, an HTML string or
 `null`. The markup is rendered **inside** the Livewire component, so `wire:click` reaches the methods
 of your window subclass and `$wire` is available to Alpine. `$context['conversation']` is the open
 conversation (`null` in `SIDEBAR_BEFORE` without one); the message hooks add `message` and `mine`.
 Give the root element of your markup a `wire:key`.
+
+> **Warning — trusted HTML.** A string (or `Htmlable`) is printed as it is. Put user data only into a Blade view (`{{ }}`
+> escapes), and pass values into `wire:click` / Alpine expressions with `@js(...)` or `Js::from(...)`: `e()` escapes HTML but
+> not a quote inside a JavaScript string.
 
 | `ChatHook` | Place |
 |---|---|
@@ -581,7 +591,8 @@ Whispers (client events) need them enabled on the socket server. Put the script 
   });
   ```
 
-- **Several panels.** Register the plugin on one panel. Links in notifications lead to that panel.
+- **Several panels.** Register the plugin (and any add-on such as Chat Pro) on **one** panel only. Notification links, the
+  private channel and add-on routes (attachment downloads) all assume a single chat panel; a second one is not supported.
 - **Users of another panel** (customers in a client cabinet): narrow `->users()` to the people of
   the chat's panel.
 - **Search** uses `LIKE`: case-insensitive on MySQL/MariaDB and PostgreSQL; on SQLite for ASCII only.
