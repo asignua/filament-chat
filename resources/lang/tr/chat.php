@@ -89,6 +89,7 @@ return [
     'cancel_reply' => 'Yanıtı iptal et',
     'reply_unknown' => 'Mesaj kullanılamıyor',
     'new_messages' => 'Yeni mesajlar',
+    'message_deleted' => 'Mesaj silindi',
     'format_time' => 'H:i',
     'format_day' => 'j M',
     'format_date' => 'j F Y',

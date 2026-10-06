@@ -89,6 +89,7 @@ return [
     'cancel_reply' => 'Скасувати відповідь',
     'reply_unknown' => 'Повідомлення недоступне',
     'new_messages' => 'Нові повідомлення',
+    'message_deleted' => 'Повідомлення видалено',
     'format_time' => 'H:i',
     'format_day' => 'd.m',
     'format_date' => 'd.m.Y',

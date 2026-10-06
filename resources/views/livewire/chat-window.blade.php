@@ -21,8 +21,14 @@
     the textarea loses focus.
 
     Without a socket the open conversation is polled.
+
+    Extension points: {{ $hook(ChatHook::X, [...context]) }} prints what extensions registered
+    with FilamentChatPlugin::renderHook(); the block-level ones sit in a keyed wrapper
+    (only when they print something) for the same morph reason as above. $tombstones
+    ([id => true]) are messages shown as «Message deleted» (ChatWindow::isMessageTombstone()).
 --}}
 @use('Asignua\FilamentChat\Enums\Reaction')
+@use('Asignua\FilamentChat\Enums\ChatHook')
 @use('Asignua\FilamentChat\Livewire\ChatWindow')
 @use('Asignua\FilamentChat\Support\ChatText')
 @use('Asignua\FilamentChat\Support\ChatTime')
@@ -46,6 +52,9 @@
             'max-md:hidden' => !$compact && $current,
         ])
     >
+        @if (($sidebarBefore = $hook(ChatHook::SIDEBAR_BEFORE))->isNotEmpty())
+            <div wire:key="fchat-hook-sidebar-before">{{ $sidebarBefore }}</div>
+        @endif
         <div class="space-y-2 border-b border-gray-200 p-3 dark:border-white/10">
             <x-filament::input.wrapper prefix-icon="heroicon-m-magnifying-glass">
                 <x-filament::input
@@ -68,6 +77,7 @@
                     $count = $unread[$item->id] ?? 0;
                     $counterpart = $item->counterpartFor($me);
                     $last = array_key_exists($item->id, $previews) ? $previews[$item->id] : $item->latestMessage;
+                    $lastGone = $last !== null && isset($tombstones[$last->id]);
                 @endphp
                 <li wire:key="conv-{{ $item->ulid }}">
                     <button
@@ -102,7 +112,7 @@
                                         @if ($item->isGroup() && $last->author)
                                             {{ $last->author->is($me) ? __('filament-chat::chat.you') : ChatUsers::name($last->author) }}:
                                         @endif
-                                        {{ $last->preview(80) }}
+                                        {{ $lastGone ? __('filament-chat::chat.message_deleted') : $last->preview(80) }}
                                     @else
                                         {{ __('filament-chat::chat.no_messages') }}
                                     @endif
@@ -187,6 +197,7 @@
                         </div>
                     @endif
                 </div>
+                {{ $hook(ChatHook::HEADER_ACTIONS) }}
                 @if ($canManage)
                     {{ $this->manageGroupAction }}
                 @endif
@@ -215,6 +226,9 @@
                     setTimeout(() => target.classList.remove('fchat-flash'), 1500)
                 })"
             >
+                @if (($feedBefore = $hook(ChatHook::FEED_BEFORE))->isNotEmpty())
+                    <div wire:key="fchat-hook-feed-before">{{ $feedBefore }}</div>
+                @endif
                 @if ($hasOlder)
                     <div class="pb-2 text-center">
                         <x-filament::link tag="button" wire:click="loadOlder" size="sm">
@@ -232,7 +246,8 @@
                         $next = $messages[$loop->index + 1] ?? null;
                         $lastInSeries = $next === null || $next->user_id !== $message->user_id || ChatTime::date($next->created_at) !== $messageDay;
                         $withAvatar = $avatarsOn && $current->isGroup() && !$mine;
-                        $reference = $messageReferences[$message->id] ?? null;
+                        $gone = isset($tombstones[$message->id]);
+                        $reference = $gone ? null : ($messageReferences[$message->id] ?? null);
                     @endphp
                     @if ($day !== $messageDay)
                         <div class="py-2 text-center text-xs text-gray-400" wire:key="day-{{ $messageDay }}">{{ $messageDay }}</div>
@@ -245,7 +260,7 @@
                             <span class="h-px flex-1 bg-primary-500/40"></span>
                         </div>
                     @endif
-                    @php $messageReactions = $reactions[$message->id] ?? []; @endphp
+                    @php $messageReactions = $gone ? [] : ($reactions[$message->id] ?? []); @endphp
                     <div
                         wire:key="msg-{{ $message->ulid }}"
                         id="fchat-msg-{{ $message->ulid }}"
@@ -285,7 +300,10 @@
                                     </div>
                                 @endif
                                 @if ($quotesOn && $message->reply_to_id !== null)
-                                    @php $original = $message->replyTo; @endphp
+                                    @php
+                                        $original = $message->replyTo;
+                                        $originalGone = $original !== null && isset($tombstones[$original->id]);
+                                    @endphp
                                     <button
                                         type="button"
                                         data-fchat-quote="{{ $original?->ulid }}"
@@ -304,21 +322,26 @@
                                         <span @class(['block truncate font-semibold', 'fchat-quote-author' => !$mine])>
                                             {{ $original?->author ? ChatUsers::name($original->author) : __('filament-chat::chat.unknown_user') }}
                                         </span>
-                                        <span class="block truncate opacity-80">{{ $original?->preview(100) ?? __('filament-chat::chat.reply_unknown') }}</span>
+                                        <span class="block truncate opacity-80">{{ $originalGone ? __('filament-chat::chat.message_deleted') : ($original?->preview(100) ?? __('filament-chat::chat.reply_unknown')) }}</span>
                                     </button>
                                 @endif
-                                @if (trim($message->body) !== '')
-                                    <div class="wrap-anywhere break-words">{{ ChatText::toHtml($message->body, array_intersect_key($names, array_flip($message->mentionIds())), $me?->getKey()) }}</div>
-                                @endif
-                                @if ($reference)
-                                    @include('filament-chat::livewire.reference', ['reference' => $reference, 'mine' => $mine])
+                                @if ($gone)
+                                    <div data-fchat-deleted class="italic opacity-80">{{ __('filament-chat::chat.message_deleted') }}</div>
+                                @else
+                                    @if (trim($message->body) !== '')
+                                        <div class="wrap-anywhere break-words">{{ ChatText::toHtml($message->body, array_intersect_key($names, array_flip($message->mentionIds())), $me?->getKey()) }}</div>
+                                    @endif
+                                    @if ($reference)
+                                        @include('filament-chat::livewire.reference', ['reference' => $reference, 'mine' => $mine])
+                                    @endif
+                                    {{ $hook(ChatHook::MESSAGE_BODY_AFTER, ['message' => $message, 'mine' => $mine]) }}
                                 @endif
                                 <div @class(['mt-0.5 flex items-center justify-end gap-1 text-[0.7rem]', 'text-white/70' => $mine, 'text-gray-400' => !$mine])>
-                                    @if ($message->isEdited())
+                                    @if ($message->isEdited() && !$gone)
                                         <span class="italic" title="{{ ChatTime::date($message->edited_at) }} {{ ChatTime::time($message->edited_at) }}">{{ __('filament-chat::chat.edited') }}</span>
                                     @endif
                                     {{ ChatTime::time($message->created_at) }}
-                                    @if ($mine && $readStatus)
+                                    @if ($mine && $readStatus && !$gone)
                                         @php $read = $readStatus->isRead($message->id); @endphp
                                         <span
                                             title="{{ $readStatus->hint($message->id, $current->isGroup()) }}"
@@ -358,8 +381,9 @@
                                 </div>
                             @endif
                         </div>
-                        @if ($canSend)
+                        @if ($canSend && !$gone)
                             <div class="flex shrink-0 items-center">
+                                {{ $hook(ChatHook::MESSAGE_MENU, ['message' => $message, 'mine' => $mine]) }}
                                 @if ($repliesOn)
                                     <button
                                         type="button"
@@ -421,6 +445,9 @@
 
             @if ($canSend)
                 <form wire:key="fchat-composer-form" wire:submit="send" class="space-y-2 border-t border-gray-200 p-3 dark:border-white/10">
+                    @if (($composerBefore = $hook(ChatHook::COMPOSER_BEFORE))->isNotEmpty())
+                        <div wire:key="fchat-hook-composer-before">{{ $composerBefore }}</div>
+                    @endif
                     @if ($replying && !$editing)
                         <div wire:key="fchat-replying" class="flex items-center gap-2 rounded-lg border-s-2 border-primary-500 bg-gray-50 px-2 py-1 text-xs dark:bg-white/5">
                             <x-filament::icon icon="heroicon-m-arrow-uturn-left" class="size-4 shrink-0 text-primary-600 dark:text-primary-400" />
@@ -576,7 +603,8 @@
                                 data-gramm_editor="false"
                                 data-enable-grammarly="false"
                                 x-on:keydown="key($event)"
-                                x-on:input="resize(); scan()"
+                                x-on:input="resize(); scan(); $dispatch('{{ ChatWindow::EVENT_TYPING }}')"
+                                x-on:paste="$dispatch('{{ ChatWindow::EVENT_PASTE }}', { event: $event })"
                                 x-on:click="scan()"
                                 x-on:blur="open = false"
                                 placeholder="{{ __('filament-chat::chat.placeholder') }}"
@@ -584,6 +612,7 @@
                                 class="block max-h-40 w-full resize-none rounded-lg border-0 bg-gray-50 px-3 py-2 text-sm text-gray-950 ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20"
                             ></textarea>
                         </div>
+                        {{ $hook(ChatHook::COMPOSER_TOOLS) }}
                         <x-filament::icon-button
                             type="submit"
                             icon="heroicon-m-paper-airplane"
@@ -592,6 +621,9 @@
                             :label="$editing ? __('filament-chat::chat.save_edit') : __('filament-chat::chat.send')"
                         />
                     </div>
+                    @if (($composerAfter = $hook(ChatHook::COMPOSER_AFTER))->isNotEmpty())
+                        <div wire:key="fchat-hook-composer-after">{{ $composerAfter }}</div>
+                    @endif
                 </form>
             @else
                 <div wire:key="fchat-left-hint" class="border-t border-gray-200 p-3 text-center text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">

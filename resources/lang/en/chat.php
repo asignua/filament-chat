@@ -89,6 +89,7 @@ return [
     'cancel_reply' => 'Cancel reply',
     'reply_unknown' => 'Message unavailable',
     'new_messages' => 'New messages',
+    'message_deleted' => 'Message deleted',
     'format_time' => 'H:i',
     'format_day' => 'M j',
     'format_date' => 'F j, Y',

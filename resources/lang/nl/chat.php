@@ -89,6 +89,7 @@ return [
     'cancel_reply' => 'Antwoord annuleren',
     'reply_unknown' => 'Bericht niet beschikbaar',
     'new_messages' => 'Nieuwe berichten',
+    'message_deleted' => 'Bericht verwijderd',
     'format_time' => 'H:i',
     'format_day' => 'j M',
     'format_date' => 'j F Y',

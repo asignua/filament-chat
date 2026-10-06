@@ -89,6 +89,7 @@ return [
     'cancel_reply' => 'Annulla risposta',
     'reply_unknown' => 'Messaggio non disponibile',
     'new_messages' => 'Nuovi messaggi',
+    'message_deleted' => 'Messaggio eliminato',
     'format_time' => 'H:i',
     'format_day' => 'j M',
     'format_date' => 'j F Y',
