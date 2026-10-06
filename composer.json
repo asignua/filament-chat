@@ -1,6 +1,6 @@
 {
     "name": "asignua/filament-chat",
-    "description": "Internal team chat for Filament panels: direct messages, groups, reactions, read receipts, a slide-over dock and links to your panel records.",
+    "description": "Internal team chat for Filament 5 panels: direct messages and groups, @mentions, replies, editing, reactions, read receipts, unread counters in navigation, tab title and favicon, a full chat page and a slide-over you can pin next to any page, and record references — drop a link to a panel record and it becomes a card. Real-time through Laravel Reverb, Pusher or Ably, or plain polling; ten languages.",
     "keywords": ["filament", "filament-plugin", "laravel", "livewire", "chat", "messenger", "team-chat", "reverb"],
     "homepage": "https://github.com/asignua/filament-chat",
     "support": {
