@@ -199,15 +199,24 @@ class ChatWindow extends Component implements HasActions, HasSchemas
      * @param bool $first the mount: Livewire has already filled $conversation from ?c=,
      *                    so "a different conversation" cannot be told from the property.
      */
-    private function openConversation(string $conversation, bool $first): void
+    private function openConversation(string $conversation, bool $first, bool $scroll = true): void
     {
         $fresh = false;
+        $previous = $first ? null : $this->conversation;
         $record = app(ConversationRepository::class)->findByUlid($conversation);
 
         if ($record === null || !Gate::allows('view', $record)) {
             $this->conversation = null;
 
+            if ($previous !== null) {
+                $this->conversationChanged($previous, null);
+            }
+
             return;
+        }
+
+        if ($first || $this->conversation !== $record->ulid) {
+            $this->conversationChanged($previous, $record->ulid);
         }
 
         if ($first || $this->conversation !== $record->ulid) {
@@ -222,8 +231,12 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
         $this->conversation = $record->ulid;
         $this->markRead($record);
+
         // Only a line computed in this very call is scrolled to; a hidden window owes the scroll until it shows.
-        $this->dispatch(self::EVENT_SCROLL, unread: $fresh && !$this->hidden);
+        // Not when a search hit opened the conversation: the jump to the message scrolls, and two scrolls would fight.
+        if ($scroll) {
+            $this->dispatch(self::EVENT_SCROLL, unread: $fresh && !$this->hidden);
+        }
         $this->dispatch(self::EVENT_OPENED, conversation: $record->ulid);
     }
 
@@ -278,7 +291,13 @@ class ChatWindow extends Component implements HasActions, HasSchemas
      */
     public function back(): void
     {
+        $previous = $this->conversation;
         $this->conversation = null;
+
+        if ($previous !== null) {
+            $this->conversationChanged($previous, null);
+        }
+
         $this->dispatch(self::EVENT_OPENED, conversation: null);
     }
 
@@ -465,7 +484,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         }
 
         if ($this->conversation !== $conversation->ulid) {
-            $this->openConversation($conversation->ulid, false);
+            $this->openConversation($conversation->ulid, false, scroll: false);
         }
 
         $this->showMessage($record->ulid);
@@ -741,7 +760,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             $leftAt = $item->participants->firstWhere('user_id', $myId)?->left_at;
 
             if ($leftAt !== null) {
-                $previews[$item->id] = app(MessageRepository::class)->lastUntil($item, $leftAt, $this->messageScope());
+                $previews[$item->id] = app(MessageRepository::class)->lastUntil($item, $leftAt);
             }
         }
 
@@ -834,7 +853,8 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     {
         $message = app(MessageRepository::class)->findInConversation($conversation, (string) $this->editing, $this->messageScope());
 
-        if ($message === null) {
+        // A message deleted since the edit began (a tombstone) can no longer be saved.
+        if ($message === null || $this->isMessageTombstone($message)) {
             $this->cancelEdit();
 
             return;
@@ -875,6 +895,13 @@ class ChatWindow extends Component implements HasActions, HasSchemas
      * extension's own composer state here.
      */
     protected function afterMessageSent(Message $message): void {}
+
+    /**
+     * Extension seam: the open conversation changed — another one was opened (the list, a toast, a
+     * search hit) or the person went back to the list (`$to` null). Drop state that belongs to the
+     * conversation you were in (pending uploads, a draft). Ulids; `$from` is null on the first open.
+     */
+    protected function conversationChanged(?string $from, ?string $to): void {}
 
     /**
      * Extension seam: shape every query that loads the feed's messages — eager-load relations,

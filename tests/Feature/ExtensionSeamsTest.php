@@ -416,4 +416,59 @@ class ExtensionSeamsTest extends TestCase
             ->call('openMessage', $later->ulid)
             ->assertNotDispatched(ChatWindow::EVENT_HIGHLIGHT);
     }
+
+    // --- 3. Conversation changes, tombstoned edits, the jump scroll ---------------------------
+
+    public function test_conversation_changed_fires_on_open_switch_back_and_a_refused_open(): void
+    {
+        $me = $this->user();
+        $a = $this->direct($me, $this->user());
+        $b = $this->direct($me, $this->user());
+        $this->actingAs($me);
+
+        Livewire::test(ExtendedChatWindow::class)
+            ->call('open', $a->ulid)
+            ->call('open', $a->ulid)
+            ->call('open', $b->ulid)
+            ->call('back')
+            ->call('open', 'no-such-conversation');
+
+        $this->assertSame(['->'.$a->ulid, $a->ulid.'>'.$b->ulid, $b->ulid.'>-'], ExtendedChatWindow::$changes);
+    }
+
+    public function test_a_search_jump_into_another_conversation_does_not_scroll_to_the_unread_line(): void
+    {
+        $me = $this->user();
+        $other = $this->user();
+        $first = $this->direct($me, $other);
+        $target = $this->send($first, $other, 'Needle');
+        $this->send($first, $other, 'Later unread');
+        $second = $this->direct($me, $this->user());
+        $this->actingAs($me);
+
+        Livewire::test(ExtendedChatWindow::class)
+            ->call('open', $second->ulid)
+            ->call('openMessage', $target->ulid)
+            ->assertSet('conversation', $first->ulid)
+            ->assertNotDispatched(ChatWindow::EVENT_SCROLL)
+            ->assertDispatched(ChatWindow::EVENT_HIGHLIGHT, message: $target->ulid);
+    }
+
+    public function test_a_message_that_became_a_tombstone_cannot_be_saved_from_the_editor(): void
+    {
+        $me = $this->user();
+        $conversation = $this->direct($me, $this->user());
+        $message = $this->send($conversation, $me, 'Original');
+        $this->actingAs($me);
+
+        $window = Livewire::test(ExtendedChatWindow::class)
+            ->call('open', $conversation->ulid)
+            ->call('startEdit', $message->ulid)
+            ->set('body', 'Changed');
+
+        ExtendedChatWindow::$gone = [$message->ulid];
+        $window->call('send')->assertSet('editing', null);
+
+        $this->assertSame('Original', $message->fresh()?->body);
+    }
 }

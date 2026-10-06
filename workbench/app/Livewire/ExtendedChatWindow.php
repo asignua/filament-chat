@@ -27,10 +27,13 @@ class ExtendedChatWindow extends ChatWindow
     /** @var list<string> */
     public static array $log = [];
 
+    /** @var list<string> */
+    public static array $changes = [];
+
     public static function resetState(): void
     {
         self::$withoutBody = self::$failInTransaction = self::$withTrashed = false;
-        self::$gone = self::$log = [];
+        self::$gone = self::$log = self::$changes = [];
     }
 
     protected function canSendWithoutBody(): bool
@@ -50,6 +53,11 @@ class ExtendedChatWindow extends ChatWindow
     protected function afterMessageSent(Message $message): void
     {
         self::$log[] = 'after:'.$message->ulid;
+    }
+
+    protected function conversationChanged(?string $from, ?string $to): void
+    {
+        self::$changes[] = ($from ?? '-').'>'.($to ?? '-');
     }
 
     protected function modifyMessagesQuery(Builder $query): Builder
