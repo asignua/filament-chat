@@ -4,7 +4,7 @@
     top bar may take one or two rows, so a fixed calc() left a page scroll.
     The wrapper sits outside the component — its re-render keeps the measured height.
 --}}
-@use('Asignua\FilamentChat\Livewire\ChatWindow')
+@use('Asignua\FilamentChat\Support\ChatConfig')
 <x-filament-panels::page>
     <div
         class="min-h-[28rem]"
@@ -20,6 +20,6 @@
         x-init="$nextTick(() => fit())"
         x-on:resize.window.debounce.100ms="fit()"
     >
-        @livewire(ChatWindow::class, ['conversation' => $this->initialConversation()], key('filament-chat-page-window'))
+        @livewire(ChatConfig::windowComponent(), ['conversation' => $this->initialConversation()], key('filament-chat-page-window'))
     </div>
 </x-filament-panels::page>

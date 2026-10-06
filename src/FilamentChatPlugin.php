@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat;
 
+use Asignua\FilamentChat\Enums\ChatHook;
+use Asignua\FilamentChat\Livewire\ChatWindow;
 use Asignua\FilamentChat\Pages\Chat;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
@@ -15,8 +17,11 @@ use Filament\Contracts\Plugin;
 use Filament\Panel;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 use UnitEnum;
 
 /**
@@ -212,6 +217,36 @@ class FilamentChatPlugin implements Plugin
     public function slug(string $slug): static
     {
         return $this->set('ui.slug', $slug);
+    }
+
+    /**
+     * Mount your own subclass of ChatWindow everywhere the window appears (the page and the
+     * slide-over) — the way an extension overrides canSendWithoutBody(), modifyMessagesQuery() …
+     *
+     * @param string $component a ChatWindow subclass
+     */
+    public function windowComponent(string $component): static
+    {
+        if (!is_a($component, ChatWindow::class, true)) {
+            throw new InvalidArgumentException($component.' must be '.ChatWindow::class.' or a subclass of it.');
+        }
+
+        return $this->set('ui.window_component', $component);
+    }
+
+    /**
+     * Add markup to a named place of the chat window. The closure gets the ChatWindow component
+     * (so `wire:click` in the markup reaches its methods) and a context array — `conversation`
+     * and, for the message hooks, `message` and `mine`; it returns Htmlable, a View, an HTML
+     * string (trusted — escape with e()) or null. Several closures per place run in order.
+     *
+     * @param Closure(ChatWindow, array<string, mixed>): (Htmlable|Renderable|string|null) $render
+     */
+    public function renderHook(ChatHook $hook, Closure $render): static
+    {
+        app(ChatManager::class)->hooks->register($hook, $render);
+
+        return $this;
     }
 
     public function navigationIcon(string|BackedEnum|Closure|null $icon): static

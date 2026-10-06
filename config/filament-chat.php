@@ -212,6 +212,9 @@ return [
         'tab_badge' => true,
         'color' => 'primary',
         'slug' => 'chat',
+        // A subclass of Asignua\FilamentChat\Livewire\ChatWindow to mount instead of the stock window
+        // (extensions: a null keeps the stock one). Also ->windowComponent() on the plugin.
+        'window_component' => null,
         'navigation' => [
             'group' => null,
             'sort' => 90,

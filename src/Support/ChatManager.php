@@ -39,7 +39,12 @@ final class ChatManager
      */
     public ?bool $replyColumn = null;
 
-    public function __construct(public readonly ReferenceRegistry $references) {}
+    public readonly ChatHooks $hooks;
+
+    public function __construct(public readonly ReferenceRegistry $references)
+    {
+        $this->hooks = new ChatHooks;
+    }
 
     /**
      * The panel the plugin is registered on; without it — the current one.

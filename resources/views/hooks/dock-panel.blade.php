@@ -18,6 +18,7 @@
 @use('Asignua\FilamentChat\Livewire\ChatDock')
 @use('Asignua\FilamentChat\Livewire\ChatWindow')
 @use('Asignua\FilamentChat\Pages\Chat')
+@use('Asignua\FilamentChat\Support\ChatConfig')
 @if (auth()->check() && !request()->routeIs(Chat::getRouteName()))
     <div
         x-data="{
@@ -118,7 +119,8 @@
                 />
             </div>
             <div class="min-h-0 flex-1">
-                <livewire:filament-chat.chat-window :compact="true" :page-url="request()->fullUrl()" lazy wire:key="filament-chat-panel-window" />
+                {{-- The configured window class (an extension may swap it); `lazy` goes in the parameters, as <livewire:… lazy> compiles it. --}}
+                @livewire(ChatConfig::windowComponent(), ['compact' => true, 'pageUrl' => request()->fullUrl(), 'lazy' => true], key('filament-chat-panel-window'))
             </div>
         </div>
     </div>

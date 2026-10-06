@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat\Support;
 
+use Asignua\FilamentChat\Livewire\ChatWindow;
 use Asignua\FilamentChat\Models\Conversation;
 use Asignua\FilamentChat\Models\Message;
 use Asignua\FilamentChat\Models\MessageReaction;
 use Asignua\FilamentChat\Models\Participant;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 
 /**
  * Typed access to config/filament-chat.php. The plugin's fluent setters write
@@ -60,6 +62,22 @@ final class ChatConfig
     {
         /** @var class-string<MessageReaction> */
         return config('filament-chat.models.reaction', MessageReaction::class);
+    }
+
+    /**
+     * The Livewire component mounted as the chat window — ChatWindow or its subclass.
+     *
+     * @return class-string<ChatWindow>
+     */
+    public static function windowComponent(): string
+    {
+        $class = config('filament-chat.ui.window_component') ?: ChatWindow::class;
+
+        if (!is_string($class) || !is_a($class, ChatWindow::class, true)) {
+            throw new InvalidArgumentException('filament-chat.ui.window_component must be '.ChatWindow::class.' or a subclass of it.');
+        }
+
+        return $class;
     }
 
     public static function table(string $key): string
