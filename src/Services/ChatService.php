@@ -8,6 +8,7 @@ use Asignua\FilamentChat\Data\GroupData;
 use Asignua\FilamentChat\Data\MessageData;
 use Asignua\FilamentChat\Enums\Reaction;
 use Asignua\FilamentChat\Events\ChatUpdated;
+use Asignua\FilamentChat\Events\MessageSent;
 use Asignua\FilamentChat\Models\Conversation;
 use Asignua\FilamentChat\Models\Message;
 use Asignua\FilamentChat\Notifications\MentionNotification;
@@ -18,6 +19,7 @@ use Asignua\FilamentChat\Repositories\ReactionRepository;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatUsers;
 use Asignua\FilamentChat\Support\Mentions;
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -38,7 +40,13 @@ class ChatService
         private readonly ReactionRepository $reactions,
     ) {}
 
-    public function send(Conversation $conversation, Model $author, MessageData $data): Message
+    /**
+     * @param (Closure(Message): void)|null $inTransaction runs right after the message is stored, in the
+     *                                                     same transaction — an extension stores its own
+     *                                                     rows (attachments) there, and a throw rolls
+     *                                                     the message back
+     */
+    public function send(Conversation $conversation, Model $author, MessageData $data, ?Closure $inTransaction = null): Message
     {
         if (!($this->conversations->participant($conversation, $author)?->isActive() ?? false)) {
             throw new InvalidArgumentException(__('filament-chat::chat.error_not_member'));
@@ -51,8 +59,13 @@ class ChatService
             ? $this->messages->findInConversation($conversation, $data->replyTo)
             : null;
 
-        $message = DB::transaction(function () use ($conversation, $author, $data, $mentions, $replyTo): Message {
+        $message = DB::transaction(function () use ($conversation, $author, $data, $mentions, $replyTo, $inTransaction): Message {
             $message = $this->messages->create($conversation, $author, $data, $mentions, $replyTo?->id);
+
+            if ($inTransaction !== null) {
+                $inTransaction($message);
+            }
+
             $this->conversations->touchLastMessage($conversation, $message);
             $this->conversations->markRead($conversation, $author, $message->id);
 
@@ -82,6 +95,9 @@ class ChatService
                 }
             }
         }
+
+        // After the commit — and after the host's own transaction, if the call sits in one.
+        DB::afterCommit(static fn () => MessageSent::dispatch($message));
 
         return $message;
     }

@@ -333,7 +333,12 @@ class ConversationRepository
      */
     private function unreadQuery(Model $user): QueryBuilder
     {
+        $model = new (ChatConfig::messageModel());
+        // A message model with soft deletes (an extension's): a deleted message is nothing to read.
+        $deletedAt = method_exists($model, 'getDeletedAtColumn') ? $model->getDeletedAtColumn() : null;
+
         return DB::table(ChatConfig::table('messages').' as m')
+            ->when($deletedAt !== null, fn (QueryBuilder $query): QueryBuilder => $query->whereNull('m.'.$deletedAt))
             ->join(ChatConfig::table('participants').' as p', function (JoinClause $join) use ($user): void {
                 $join->on('p.conversation_id', '=', 'm.conversation_id')
                     ->where('p.user_id', '=', $user->getKey())

@@ -8,6 +8,7 @@ use Asignua\FilamentChat\Data\MessageData;
 use Asignua\FilamentChat\Models\Conversation;
 use Asignua\FilamentChat\Models\Message;
 use Asignua\FilamentChat\Support\ChatConfig;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,10 @@ use InvalidArgumentException;
 
 /**
  * Messages: create, edit the text (the author, ChatService::edit) and read — no deletes.
+ *
+ * The reads take an optional `$scope` — the window's modifyMessagesQuery(): an
+ * extension's way to eager-load, or to include what a global scope hides (soft
+ * deletes), the same for every query of the feed so counts and pages agree.
  */
 class MessageRepository
 {
@@ -24,7 +29,7 @@ class MessageRepository
      */
     public function create(Conversation $conversation, Model $author, MessageData $data, array $mentions = [], ?int $replyToId = null): Message
     {
-        $body = $this->validBody($data->body, $data->referenceType !== null);
+        $body = $this->validBody($data->body, $data->referenceType !== null || $data->allowEmpty);
 
         $model = ChatConfig::messageModel();
         $message = new $model;
@@ -68,9 +73,9 @@ class MessageRepository
     /**
      * The author's latest message in the conversation — "edit last" (↑ in an empty composer).
      */
-    public function lastBy(Conversation $conversation, Model $author, ?Carbon $until = null): ?Message
+    public function lastBy(Conversation $conversation, Model $author, ?Carbon $until = null, ?Closure $scope = null): ?Message
     {
-        return $conversation->messages()
+        return $this->query($conversation, $scope)
             ->where('user_id', $author->getKey())
             ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
             ->orderByDesc('id')
@@ -83,9 +88,9 @@ class MessageRepository
      *
      * @return Collection<int, Message>
      */
-    public function latest(Conversation $conversation, int $limit, ?Carbon $until = null): Collection
+    public function latest(Conversation $conversation, int $limit, ?Carbon $until = null, ?Closure $scope = null): Collection
     {
-        return $conversation->messages()
+        return $this->query($conversation, $scope)
             ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
             ->with(ChatConfig::repliesAvailable() ? ['author', 'replyTo.author'] : ['author'])
             ->orderByDesc('id')
@@ -98,22 +103,50 @@ class MessageRepository
     /**
      * id of the newest message (up to `$until`, see latest()).
      */
-    public function latestId(Conversation $conversation, ?Carbon $until = null): ?int
+    public function latestId(Conversation $conversation, ?Carbon $until = null, ?Closure $scope = null): ?int
     {
-        $id = $conversation->messages()
+        $id = $this->query($conversation, $scope)
             ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
             ->max('id');
 
         return $id !== null ? (int) $id : null;
     }
 
-    public function hasOlderThan(Conversation $conversation, int $messageId): bool
+    public function hasOlderThan(Conversation $conversation, int $messageId, ?Closure $scope = null): bool
     {
-        return $conversation->messages()->where('id', '<', $messageId)->exists();
+        return $this->query($conversation, $scope)->where('id', '<', $messageId)->exists();
     }
 
     /**
-     * A message may be just a record reference — then the text can be empty.
+     * A message by ulid, whichever conversation it is in — for a jump from a
+     * search result. The caller checks that the person may see its conversation.
+     */
+    public function findByUlid(string $ulid, ?Closure $scope = null): ?Message
+    {
+        $model = ChatConfig::messageModel();
+        $query = $model::query();
+
+        if ($scope !== null) {
+            $query = $scope($query);
+        }
+
+        return $query->where('ulid', $ulid)->with(['author', 'conversation'])->first();
+    }
+
+    /**
+     * The conversation's messages, shaped by the extension's scope when there is one.
+     *
+     * @return Builder<Message>
+     */
+    private function query(Conversation $conversation, ?Closure $scope): Builder
+    {
+        $query = $conversation->messages()->getQuery();
+
+        return $scope !== null ? $scope($query) : $query;
+    }
+
+    /**
+     * A message may be just a record reference (or declare itself content-only, `allowEmpty`) — then the text can be empty.
      */
     private function validBody(string $body, bool $hasReference): string
     {
@@ -130,18 +163,18 @@ class MessageRepository
         return $body;
     }
 
-    public function findInConversation(Conversation $conversation, string $ulid): ?Message
+    public function findInConversation(Conversation $conversation, string $ulid, ?Closure $scope = null): ?Message
     {
-        return $conversation->messages()->where('ulid', $ulid)->with('author')->first();
+        return $this->query($conversation, $scope)->where('ulid', $ulid)->with('author')->first();
     }
 
     /**
      * The first message after the reader's read pointer written by someone else
      * (a deleted author counts as someone else).
      */
-    public function firstUnread(Conversation $conversation, Model $reader, ?int $after, ?Carbon $until = null): ?Message
+    public function firstUnread(Conversation $conversation, Model $reader, ?int $after, ?Carbon $until = null, ?Closure $scope = null): ?Message
     {
-        return $conversation->messages()
+        return $this->query($conversation, $scope)
             ->where(fn (Builder $query): Builder => $query->whereNull('user_id')->orWhere('user_id', '!=', $reader->getKey()))
             ->when($after !== null, fn (Builder $query): Builder => $query->where('id', '>', $after))
             ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
@@ -153,9 +186,9 @@ class MessageRepository
      * How many messages, from this one to the newest (within `$until`) — how much
      * the feed must load for the message to be in it.
      */
-    public function countFrom(Conversation $conversation, int $messageId, ?Carbon $until = null): int
+    public function countFrom(Conversation $conversation, int $messageId, ?Carbon $until = null, ?Closure $scope = null): int
     {
-        return $conversation->messages()
+        return $this->query($conversation, $scope)
             ->where('id', '>=', $messageId)
             ->when($until !== null, fn (Builder $query): Builder => $query->where('created_at', '<=', $until))
             ->count();
@@ -164,9 +197,9 @@ class MessageRepository
     /**
      * The latest message up to a moment — what someone who left a group last saw.
      */
-    public function lastUntil(Conversation $conversation, Carbon $until): ?Message
+    public function lastUntil(Conversation $conversation, Carbon $until, ?Closure $scope = null): ?Message
     {
-        return $conversation->messages()
+        return $this->query($conversation, $scope)
             ->where('created_at', '<=', $until)
             ->with('author')
             ->orderByDesc('id')

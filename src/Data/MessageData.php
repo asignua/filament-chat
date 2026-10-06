@@ -9,6 +9,8 @@ use Asignua\FilamentChat\Support\ChatManager;
 /**
  * A message payload: text and, optionally, a registered record it is about.
  * Half a reference (a type without an id or an unknown type) is dropped whole.
+ * `allowEmpty` — the body may be empty without a reference (an extension adds the
+ * content some other way, e.g. attachments).
  */
 final readonly class MessageData
 {
@@ -17,6 +19,7 @@ final readonly class MessageData
         public ?string $referenceType = null,
         public ?int $referenceId = null,
         public ?string $replyTo = null,
+        public bool $allowEmpty = false,
     ) {}
 
     /**
@@ -38,6 +41,7 @@ final readonly class MessageData
             referenceType: $complete ? $type : null,
             referenceId: $complete ? $id : null,
             replyTo: is_string($replyTo) && $replyTo !== '' ? $replyTo : null,
+            allowEmpty: ($data['allow_empty'] ?? false) === true,
         );
     }
 }

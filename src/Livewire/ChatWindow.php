@@ -6,6 +6,7 @@ namespace Asignua\FilamentChat\Livewire;
 
 use Asignua\FilamentChat\Data\GroupData;
 use Asignua\FilamentChat\Data\MessageData;
+use Asignua\FilamentChat\Enums\ChatHook;
 use Asignua\FilamentChat\Enums\Reaction;
 use Asignua\FilamentChat\Models\Conversation;
 use Asignua\FilamentChat\Models\Message;
@@ -22,6 +23,7 @@ use Asignua\FilamentChat\Support\ChatUsers;
 use Asignua\FilamentChat\Support\ReadStatus;
 use Asignua\FilamentChat\Support\Realtime;
 use Asignua\FilamentChat\Support\References\RecordUrlResolver;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
@@ -33,9 +35,11 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\HtmlString;
 use InvalidArgumentException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -83,6 +87,12 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
     /** Browser event: scroll to a message and flash it (a click on a quote). */
     public const string EVENT_HIGHLIGHT = 'filament-chat-highlight';
+
+    /** Browser event: the person typed in the composer (an extension's typing indicator listens). */
+    public const string EVENT_TYPING = 'filament-chat-typing';
+
+    /** Browser event: something was pasted into the composer; `detail.event` is the ClipboardEvent. */
+    public const string EVENT_PASTE = 'filament-chat-paste';
 
     #[Locked]
     public bool $compact = false;
@@ -231,7 +241,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         }
 
         $messages = app(MessageRepository::class);
-        $first = $messages->firstUnread($conversation, $user, $participant->last_read_message_id, $participant->left_at);
+        $first = $messages->firstUnread($conversation, $user, $participant->last_read_message_id, $participant->left_at, $this->messageScope());
 
         if ($first === null) {
             return null;
@@ -239,7 +249,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
         $page = ChatConfig::pageSize();
         // +1: one already-read message above the line, for context.
-        $needed = $messages->countFrom($conversation, $first->id, $participant->left_at) + 1;
+        $needed = $messages->countFrom($conversation, $first->id, $participant->left_at, $this->messageScope()) + 1;
 
         if ($needed > self::UNREAD_MAX_PAGES * $page) {
             return null;
@@ -321,18 +331,20 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         }
 
         try {
-            app(ChatService::class)->send($conversation, $user, MessageData::fromArray([
+            $message = app(ChatService::class)->send($conversation, $user, MessageData::fromArray([
                 'body' => $this->body,
                 'reference_type' => $this->referenceType,
                 'reference_id' => $this->referenceId,
                 'reply_to' => $this->replyingTo,
-            ]));
+                'allow_empty' => $this->canSendWithoutBody(),
+            ]), fn (Message $message) => $this->beforeMessageCommit($message));
         } catch (InvalidArgumentException $e) {
             Notification::make()->title($e->getMessage())->danger()->send();
 
             return;
         }
 
+        $this->afterMessageSent($message);
         $this->body = '';
         $this->clearReference();
         $this->cancelReply();
@@ -355,9 +367,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             return;
         }
 
-        $record = app(MessageRepository::class)->findInConversation($conversation, $message);
+        $record = app(MessageRepository::class)->findInConversation($conversation, $message, $this->messageScope());
 
-        if ($record === null) {
+        if ($record === null || $this->isMessageTombstone($record)) {
             return;
         }
 
@@ -374,9 +386,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     public function startEdit(string $message): void
     {
         $conversation = $this->current();
-        $record = $conversation !== null ? app(MessageRepository::class)->findInConversation($conversation, $message) : null;
+        $record = $conversation !== null ? app(MessageRepository::class)->findInConversation($conversation, $message, $this->messageScope()) : null;
 
-        if ($record === null || !Gate::allows('update', $record)) {
+        if ($record === null || $this->isMessageTombstone($record) || !Gate::allows('update', $record)) {
             return;
         }
 
@@ -395,9 +407,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             return;
         }
 
-        $record = app(MessageRepository::class)->findInConversation($conversation, $message);
+        $record = app(MessageRepository::class)->findInConversation($conversation, $message, $this->messageScope());
 
-        if ($record === null) {
+        if ($record === null || $this->isMessageTombstone($record)) {
             return;
         }
 
@@ -419,7 +431,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     {
         $conversation = $this->current();
         $user = ChatUsers::current();
-        $record = $conversation !== null ? app(MessageRepository::class)->findInConversation($conversation, $message) : null;
+        $record = $conversation !== null ? app(MessageRepository::class)->findInConversation($conversation, $message, $this->messageScope()) : null;
 
         if ($conversation === null || $user === null || $record === null) {
             return;
@@ -431,10 +443,32 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             return;
         }
 
-        $count = app(MessageRepository::class)->countFrom($conversation, $record->id, $leftAt);
+        $count = app(MessageRepository::class)->countFrom($conversation, $record->id, $leftAt, $this->messageScope());
         $page = ChatConfig::pageSize();
         $this->limit = max($this->limit, (int) ceil($count / $page) * $page);
         $this->dispatch(self::EVENT_HIGHLIGHT, message: $record->ulid);
+    }
+
+    /**
+     * Jump to a message of ANY of the person's conversations (a search result): opens its
+     * conversation first when it is not the open one, then loads up to the message and flashes it.
+     * The ulid comes from the client — the conversation must be one the person may see, and
+     * showMessage() keeps what a group's leaver may not.
+     */
+    public function openMessage(string $messageUlid): void
+    {
+        $record = app(MessageRepository::class)->findByUlid($messageUlid, $this->messageScope());
+        $conversation = $record?->conversation;
+
+        if ($record === null || $conversation === null || !Gate::allows('view', $conversation)) {
+            return;
+        }
+
+        if ($this->conversation !== $conversation->ulid) {
+            $this->openConversation($conversation->ulid, false);
+        }
+
+        $this->showMessage($record->ulid);
     }
 
     /**
@@ -450,7 +484,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         }
 
         $leftAt = app(ConversationRepository::class)->participant($conversation, $user)?->left_at;
-        $last = app(MessageRepository::class)->lastBy($conversation, $user, $leftAt);
+        $last = app(MessageRepository::class)->lastBy($conversation, $user, $leftAt, $this->messageScope());
 
         if ($last !== null) {
             $this->startEdit($last->ulid);
@@ -691,8 +725,13 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $references = app(ChatManager::class)->references;
         $canSend = $current !== null && Gate::allows(ConversationPolicy::SEND, $current);
         $replying = $current !== null && $this->replyingTo !== null && ChatConfig::replies()
-            ? app(MessageRepository::class)->findInConversation($current, $this->replyingTo)
+            ? app(MessageRepository::class)->findInConversation($current, $this->replyingTo, $this->messageScope())
             : null;
+
+        if ($replying !== null && $this->isMessageTombstone($replying)) {
+            $replying = null;
+        }
+
         // Groups I left: preview only what I could see — the last message before leaving.
         $previews = [];
 
@@ -702,10 +741,11 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             $leftAt = $item->participants->firstWhere('user_id', $myId)?->left_at;
 
             if ($leftAt !== null) {
-                $previews[$item->id] = app(MessageRepository::class)->lastUntil($item, $leftAt);
+                $previews[$item->id] = app(MessageRepository::class)->lastUntil($item, $leftAt, $this->messageScope());
             }
         }
 
+        $tombstones = $this->tombstones($messages, $conversations, $previews);
         $names = [];
 
         foreach ($current->participants ?? [] as $participant) {
@@ -731,6 +771,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
         return view('filament-chat::livewire.chat-window', [
             'me' => $user,
+            // Renders the extensions' markup for a named place: {{ $hook(ChatHook::COMPOSER_TOOLS) }}.
+            'hook' => fn (ChatHook $place, array $context = []): HtmlString => app(ChatManager::class)->hooks->render($place, $this, ['conversation' => $current, ...$context]),
+            'tombstones' => $tombstones,
             'messageReferences' => $messageReferences,
             'conversations' => $conversations,
             'previews' => $previews,
@@ -738,7 +781,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             'current' => $current,
             'messages' => $messages,
             'hasOlder' => $current !== null && $messages->isNotEmpty()
-                && app(MessageRepository::class)->hasOlderThan($current, $messages->first()->id),
+                && app(MessageRepository::class)->hasOlderThan($current, $messages->first()->id, $this->messageScope()),
             // Read pointers come from the participants already loaded, once per render.
             'readStatus' => ChatConfig::readReceipts() && $current !== null && $user !== null
                 ? ReadStatus::for($current->participants, (int) $user->getKey())
@@ -753,7 +796,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             'quotesOn' => ChatConfig::repliesAvailable(),
             // Own messages that may still be edited — the policy rule without a query per message.
             'editable' => $canSend && $user !== null
-                ? array_values($messages->filter(fn (Message $message): bool => MessagePolicy::editableBy($message, $user))->map(fn (Message $message): int => $message->id)->all())
+                ? array_values($messages->reject(fn (Message $message): bool => isset($tombstones[$message->id]))->filter(fn (Message $message): bool => MessagePolicy::editableBy($message, $user))->map(fn (Message $message): int => $message->id)->all())
                 : [],
             // key → name of everyone in the conversation: mentions in messages are highlighted by it.
             'names' => $names,
@@ -789,7 +832,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
     private function saveEdit(Conversation $conversation, Model $user): void
     {
-        $message = app(MessageRepository::class)->findInConversation($conversation, (string) $this->editing);
+        $message = app(MessageRepository::class)->findInConversation($conversation, (string) $this->editing, $this->messageScope());
 
         if ($message === null) {
             $this->cancelEdit();
@@ -808,6 +851,96 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $this->editing = null;
         $this->body = '';
         $this->dispatch(self::EVENT_SENT);
+    }
+
+    /**
+     * Extension seam: may a message be sent with no text and no record reference? An extension
+     * that carries content some other way (attachments it keeps in its own state) says yes
+     * while that content is there. Asked on every send; default: no.
+     */
+    protected function canSendWithoutBody(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Extension seam: runs inside the send transaction, right after the message row is stored —
+     * the place to write the extension's own rows (attachments). Throwing rolls the message back;
+     * an InvalidArgumentException is shown to the person as a notification.
+     */
+    protected function beforeMessageCommit(Message $message): void {}
+
+    /**
+     * Extension seam: a message was sent from this window (after the commit). Reset the
+     * extension's own composer state here.
+     */
+    protected function afterMessageSent(Message $message): void {}
+
+    /**
+     * Extension seam: shape every query that loads the feed's messages — eager-load relations,
+     * or include what a global scope hides (`withTrashed()` for soft deletes). Applied to the
+     * page, the counts behind "load older" and the unread line, jumps and the read pointer alike,
+     * so they agree. Must return the query it was given (or one built from it).
+     *
+     * @param Builder<Message> $query
+     *
+     * @return Builder<Message>
+     */
+    protected function modifyMessagesQuery(Builder $query): Builder
+    {
+        return $query;
+    }
+
+    /**
+     * Extension seam: is the message shown as «Message deleted»? Then the feed hides its text,
+     * record, reactions, quote text and menu, and the list preview, a quote of it and the
+     * composer's reply strip stay silent about the text. Default: never (the free chat has no deletes).
+     */
+    protected function isMessageTombstone(Message $message): bool
+    {
+        return false;
+    }
+
+    /**
+     * @return Closure(Builder<Message>): Builder<Message>
+     */
+    private function messageScope(): Closure
+    {
+        return fn (Builder $query): Builder => $this->modifyMessagesQuery($query);
+    }
+
+    /**
+     * Ids of the messages shown as tombstones — the feed, the originals it quotes and the list
+     * previews — as `[id => true]`.
+     *
+     * @param Collection<int, Message>    $messages
+     * @param iterable<int, Conversation> $conversations
+     * @param array<int, ?Message>        $previews
+     *
+     * @return array<int, true>
+     */
+    private function tombstones(Collection $messages, iterable $conversations, array $previews): array
+    {
+        $candidates = [];
+
+        foreach ($messages as $message) {
+            $candidates[] = $message;
+            $candidates[] = $message->relationLoaded('replyTo') ? $message->replyTo : null;
+        }
+
+        foreach ($conversations as $item) {
+            $candidates[] = $item->relationLoaded('latestMessage') ? $item->latestMessage : null;
+        }
+
+        $found = [];
+
+        foreach ([...$candidates, ...$previews] as $message) {
+            if ($message !== null && $this->isMessageTombstone($message)) {
+                $found[$message->id] = true;
+            }
+        }
+
+        return $found;
     }
 
     /**
@@ -842,7 +975,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         // Whoever left a group sees the history up to leaving only.
         $leftAt = app(ConversationRepository::class)->participant($conversation, $user)?->left_at;
 
-        return app(MessageRepository::class)->latest($conversation, $this->limit, $leftAt);
+        return app(MessageRepository::class)->latest($conversation, $this->limit, $leftAt, $this->messageScope());
     }
 
     private function markRead(Conversation $conversation): void
@@ -859,7 +992,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
         // Only the newest visible id is needed — not the whole page with its relations.
         $leftAt = app(ConversationRepository::class)->participant($conversation, $user)?->left_at;
-        $lastId = app(MessageRepository::class)->latestId($conversation, $leftAt);
+        $lastId = app(MessageRepository::class)->latestId($conversation, $leftAt, $this->messageScope());
 
         if ($lastId !== null && app(ChatService::class)->markRead($conversation, $user, $lastId)) {
             $this->dispatch(self::EVENT_READ)->to(ChatDock::class);
