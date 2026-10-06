@@ -27,6 +27,7 @@ Works with or without a websocket server: turn real-time on with one environment
 - [Translations](#translations) — your language, your own wording
 - [Upgrading from 1.1](#upgrading-from-11)
 - [Customising](#customising) — own models, audit trail, events
+- [Extending](#extending) — your own window, render hooks, protected methods, the `MessageSent` event
 - [Integration notes](#integration-notes) — custom themes, panels built by a package, several panels
 - [Troubleshooting](#troubleshooting)
 - [AI agents](#ai-agents)
@@ -455,6 +456,7 @@ member names) for membership, which lives in a pivot the model diff cannot see.
 |---|---|
 | `Asignua\FilamentChat\Events\ChatUpdated` | anything changed in a conversation — broadcast to members |
 | `Asignua\FilamentChat\Events\GroupMembersChanged` | a group was created, its members changed, someone left |
+| `Asignua\FilamentChat\Events\MessageSent` | a message was stored by `ChatService::send()` (`$message`) — a plain event, dispatched after the commit |
 
 ### Writing from your code
 
@@ -491,6 +493,79 @@ $chat->updateGroup($conversation, GroupData::fromArray($data));
 abort_unless(Gate::allows(ConversationPolicy::LEAVE, $conversation), 403);
 $chat->leave($conversation, auth()->user());
 ```
+
+## Extending
+
+Seams for add-on packages (attachments, search, typing indicators …) that change the chat window
+without forking it. Nothing here changes the stock chat.
+
+### Your own window
+
+```php
+FilamentChatPlugin::make()->windowComponent(App\Livewire\MyChatWindow::class); // or ui.window_component
+```
+
+The class must extend `Asignua\FilamentChat\Livewire\ChatWindow`; it is mounted on the Chat page and
+in the slide-over. Override these protected methods (all optional):
+
+| Method | Default | Use |
+|---|---|---|
+| `canSendWithoutBody(): bool` | `false` | `true` lets `send()` store a message with no text and no record (the content is carried some other way) |
+| `beforeMessageCommit(Message $message)` | no-op | runs inside the send transaction — store your own rows; a throw rolls the message back |
+| `afterMessageSent(Message $message)` | no-op | after a successful send from this window — reset your own composer state |
+| `modifyMessagesQuery(Builder $query): Builder` | `$query` | shapes **every** feed query (page, "load older", unread line, jumps, read pointer): eager-load, or `withTrashed()` for a message model with soft deletes |
+| `isMessageTombstone(Message $message): bool` | `false` | `true` renders «Message deleted» instead of text, record, reactions, reply/edit/menu — also in a quote of it and in the conversation list preview |
+
+`openMessage(string $messageUlid)` (public) jumps to a message of **any** of the person's
+conversations: it opens the conversation first if needed, loads up to the message and flashes it. A
+message of a conversation the person may not see, or written after they left a group, is ignored.
+
+The message model comes from `models.message`; a subclass with `SoftDeletes` works (the free chat adds
+none). A soft-deleted message is not counted as unread. The `MessageRepository` reads take an optional
+trailing `?Closure $scope` — that is how `modifyMessagesQuery()` reaches them.
+
+### Render hooks
+
+```php
+use Asignua\FilamentChat\Enums\ChatHook;
+
+FilamentChatPlugin::make()
+    ->renderHook(ChatHook::COMPOSER_TOOLS, fn (ChatWindow $window, array $context) => view('my.attach-button'))
+    ->renderHook(ChatHook::MESSAGE_MENU, fn (ChatWindow $window, array $context) => '<button wire:click="deleteMessage(\''.e($context['message']->ulid).'\')">…</button>');
+```
+
+The closure returns `Htmlable`, a `View`, an HTML string (trusted — escape user data with `e()`) or
+`null`. The markup is rendered **inside** the Livewire component, so `wire:click` reaches the methods
+of your window subclass and `$wire` is available to Alpine. `$context['conversation']` is the open
+conversation (`null` in `SIDEBAR_BEFORE` without one); the message hooks add `message` and `mine`.
+Give the root element of your markup a `wire:key`.
+
+| `ChatHook` | Place |
+|---|---|
+| `SIDEBAR_BEFORE` | top of the conversation list, above the search box |
+| `HEADER_ACTIONS` | conversation header, before the group buttons |
+| `FEED_BEFORE` | top of the feed |
+| `MESSAGE_BODY_AFTER` | in the bubble, after the text and the record card |
+| `MESSAGE_MENU` | the buttons beside a bubble |
+| `COMPOSER_BEFORE` / `COMPOSER_AFTER` | first / last in the composer form |
+| `COMPOSER_TOOLS` | in the input row, right before the send button |
+
+Hooks can also be added from an add-on's service provider: `app(ChatManager::class)->hooks->register($hook, $closure)`.
+
+### Browser events
+
+The composer dispatches `filament-chat-typing` on every input and `filament-chat-paste`
+(`detail.event` — the `ClipboardEvent`, for pasted images) — listen with `x-on:filament-chat-typing.window`
+in a hook's markup. Other events are the constants on `ChatWindow` (`EVENT_SCROLL`, `EVENT_HIGHLIGHT` …).
+
+### Channels and scripts
+
+The chat only authorizes its own per-person channel. An extension that needs more (a per-conversation
+typing channel) registers it with plain Laravel — `Broadcast::channel('my-ext.conversation.{ulid}', …)`
+— and listens in the browser through the Echo the chat already set up: `window.Echo.private(…)`
+(`window.Echo` exists once the `EchoLoaded` event fired or when `realtime.echo` is `plugin`).
+Whispers (client events) need them enabled on the socket server. Put the script in a hook's markup
+(`@script` / Alpine `x-init`) or in a panel render hook of your own.
 
 ## Integration notes
 

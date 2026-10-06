@@ -2,6 +2,20 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.3.0 - 2026-10-06
+
+Extension seams for add-on packages; the chat itself does not change (README, Extending).
+
+- `FilamentChatPlugin::windowComponent()` / `ui.window_component`: mount a subclass of `ChatWindow` on the Chat page and in the slide-over.
+- Render hooks: the `ChatHook` enum (`SIDEBAR_BEFORE`, `HEADER_ACTIONS`, `FEED_BEFORE`, `MESSAGE_BODY_AFTER`, `MESSAGE_MENU`, `COMPOSER_BEFORE`, `COMPOSER_TOOLS`, `COMPOSER_AFTER`) and `FilamentChatPlugin::renderHook()`; markup renders inside the Livewire component.
+- Protected methods on `ChatWindow`: `canSendWithoutBody()`, `beforeMessageCommit()`, `afterMessageSent()`, `modifyMessagesQuery()`, `isMessageTombstone()` (new string `message_deleted` in all ten languages). `MessageData::$allowEmpty` / `allow_empty` and `ChatService::send(…, ?Closure $inTransaction)` back them.
+- `ChatWindow::openMessage()` opens the message's conversation first, so a search result can lead to another conversation.
+- New event `Events\MessageSent` (not broadcast), dispatched after the commit.
+- `MessageRepository` reads take an optional trailing `?Closure $scope`; new `findByUlid()`. If your app rebinds the repository and overrides these methods, add the parameter.
+- A message model with `SoftDeletes` (an add-on's subclass of `models.message`) is supported: deleted messages are not unread.
+- The composer dispatches browser events `filament-chat-typing` and `filament-chat-paste`.
+- The slide-over mounts the window through `@livewire(ChatConfig::windowComponent(), …)` instead of `<livewire:filament-chat.chat-window>` — a published copy of `hooks/dock-panel` keeps working with the stock window; update it to pick up `window_component`.
+
 ## v1.2.2 - 2026-10-05
 
 - Fix: references to models with a UUID/ULID string key were stored under a wrong integer id or silently dropped. "All resources" now skips such models, and registering one explicitly throws an `InvalidArgumentException` naming it (README, Record references).

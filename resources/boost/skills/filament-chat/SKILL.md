@@ -170,6 +170,15 @@ $chat->react($c, $message, $user, Reaction::Like);
 Mentions are recognised server-side by member names (`@Olga Green`), longest name first; e-mail
 addresses are not mentions.
 
+## Extending (add-on packages)
+
+Don't fork the window: `FilamentChatPlugin::windowComponent(Sub::class)` (a `ChatWindow` subclass),
+`->renderHook(ChatHook::X, fn (ChatWindow $window, array $context) => …)` (markup renders inside the
+Livewire component, so `wire:click` hits the subclass), protected overrides `canSendWithoutBody()`,
+`beforeMessageCommit()`, `afterMessageSent()`, `modifyMessagesQuery()`, `isMessageTombstone()`,
+public `openMessage($ulid)`, event `Events\MessageSent`. A `models.message` subclass may use
+`SoftDeletes`. Full table in the README, «Extending».
+
 ## Troubleshooting
 
 | Symptom | Check |
