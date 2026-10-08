@@ -112,6 +112,26 @@ class MessageRepository
         return $id !== null ? (int) $id : null;
     }
 
+    /**
+     * Ids of the authors of the messages in `($after, $upTo]` — whose ✓✓ can change
+     * when a member's read pointer moves over that range.
+     *
+     * @return list<int>
+     */
+    public function authorIdsBetween(Conversation $conversation, ?int $after, int $upTo, ?Closure $scope = null): array
+    {
+        return array_values(array_map(
+            intval(...),
+            $this->query($conversation, $scope)
+                ->where('id', '>', $after ?? 0)
+                ->where('id', '<=', $upTo)
+                ->whereNotNull('user_id')
+                ->distinct()
+                ->pluck('user_id')
+                ->all(),
+        ));
+    }
+
     public function hasOlderThan(Conversation $conversation, int $messageId, ?Closure $scope = null): bool
     {
         return $this->query($conversation, $scope)->where('id', '<', $messageId)->exists();

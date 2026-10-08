@@ -61,7 +61,7 @@ Dark mode:
 | **Reactions** | Six emoji, one per person per message. |
 | **Read receipts** | ✓ sent, ✓✓ read — in a group, read by every active member (the hint lists who has not). |
 | **Replies** | ↩ on a message quotes it above your answer; a click on the quote jumps to the original, loading earlier messages if needed. |
-| **Avatars** | Next to the last message of a series in groups, in the @ list and the member line. From Filament's avatar provider or `->avatarUsing()`; initials when there is no picture. |
+| **Avatars** | Next to the last message of a series in groups, in the @ list and the member line; direct conversations in the list always show the person. From Filament's avatar provider or `->avatarUsing()`; initials when there is no picture. |
 | **New messages** | Opening a conversation scrolls to a line where the unread part starts (up to five pages back, otherwise it opens at the bottom); sending your own message clears the line. |
 | **Record references** | Attach a record with a picker, by dropping a link to its page, or "Attach current" in the slide-over. |
 | **Where** | A full **Chat** page and a **top-bar button** with a slide-over; on wide screens the slide-over can be **pinned** as a split screen that stays open across pages. |
@@ -143,9 +143,9 @@ FilamentChatPlugin::make()
 
 | Key | Plugin | Default | Off means |
 |---|---|---|---|
-| `features.groups` | `->groups(false)` | `true` | direct messages only; "New group" disappears, the server refuses groups |
+| `features.groups` | `->groups(false)` | `true` | direct messages only; "New group" and "Manage group" disappear, the server refuses to create or change groups. Groups that already exist stay in the list and keep working (messages, leaving) |
 | `features.reactions` | `->reactions(false)` | `true` | no emoji picker or chips; the server refuses reactions |
-| `features.mentions` | `->mentions(false)` | `true` | no `@` autocomplete, nothing highlighted or notified |
+| `features.mentions` | `->mentions(false)` | `true` | no `@` autocomplete, nothing highlighted or notified (mentions stored in old messages are not highlighted either) |
 | `features.read_receipts` | `->readReceipts(false)` | `true` | no ✓ / ✓✓ |
 | `features.avatars` | `->avatars(false)` | `true` | no pictures or initials next to messages, in the @ list or the member line |
 | `features.replies` | `->replies(false)` | `true` | no ↩ button and no new quotes; quotes already stored stay visible |
@@ -580,7 +580,11 @@ Whispers (client events) need them enabled on the socket server. Put the script 
 ## Integration notes
 
 - **Custom themes.** The stylesheet is linked after the panel's theme on purpose: a theme compiles the
-  same Tailwind utilities (`.bg-white`) and, loaded later, would beat the chat's `dark:` variants.
+  same Tailwind utilities (`.bg-white`) and, loaded later, would beat the chat's `dark:` variants. The
+  other direction is closed too: every utility in the chat's CSS is emitted under `.fchat-scope` (the
+  window, the slide-over and the Chat page carry it), so the chat cannot override the host's
+  `hidden lg:block` or `dark:bg-gray-900` elsewhere. A **published** view that mounts the window outside
+  those places needs a `fchat-scope` ancestor.
 - **A panel built by a package** (a CMS that owns its `PanelProvider`): add the plugin when the panel
   registers — `boot()` is too late, the panel's routes already exist:
 

@@ -118,8 +118,11 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
     public string $body = '';
 
+    /** Changes only through attach() / attachUrl() / clearReference(): those check that the person may see the record. */
+    #[Locked]
     public ?string $referenceType = null;
 
+    #[Locked]
     public ?int $referenceId = null;
 
     /** ulid of the own message being edited in the composer. */
@@ -145,6 +148,14 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
     /** A hidden window (closed slide-over) does not mark anything as read. */
     public bool $hidden = false;
+
+    /**
+     * The same for a browser tab in the background: nobody is looking at the window.
+     * null = the browser never reported (a published window view without the visibility hook): counts as
+     * "looking", the pre-hook behaviour. The window's x-init reports a tab opened in the background
+     * (it never fires visibilitychange), visibilitychange reports the rest.
+     */
+    public ?bool $documentHidden = null;
 
     public function mount(?string $conversation = null, bool $compact = false, ?string $pageUrl = null): void
     {
@@ -224,9 +235,10 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             $this->clearReference();
             $this->cancelEdit();
             $this->cancelReply();
+            $this->clearDraft();
             $this->unreadMarker = $this->unreadMarkerFor($record);
             $fresh = $this->unreadMarker !== null;
-            $this->scrollToUnread = $fresh && $this->hidden;
+            $this->scrollToUnread = $fresh && !$this->isViewed();
         }
 
         $this->conversation = $record->ulid;
@@ -235,7 +247,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         // Only a line computed in this very call is scrolled to; a hidden window owes the scroll until it shows.
         // Not when a search hit opened the conversation: the jump to the message scrolls, and two scrolls would fight.
         if ($scroll) {
-            $this->dispatch(self::EVENT_SCROLL, unread: $fresh && !$this->hidden);
+            $this->dispatch(self::EVENT_SCROLL, unread: $fresh && $this->isViewed());
         }
         $this->dispatch(self::EVENT_OPENED, conversation: $record->ulid);
     }
@@ -279,11 +291,35 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $this->hidden = !$visible;
         $current = $this->current();
 
-        if ($visible && $current !== null) {
+        if ($visible && $this->documentHidden !== true && $current !== null) {
             $this->markRead($current);
             $this->dispatch(self::EVENT_SCROLL, unread: $this->scrollToUnread);
             $this->scrollToUnread = false;
         }
+    }
+
+    /**
+     * The browser tab went to the background or came back (visibilitychange). Same as the
+     * slide-over: nothing is marked read while nobody can see the window.
+     */
+    public function setDocumentHidden(bool $hidden): void
+    {
+        $this->documentHidden = $hidden;
+        $current = $this->current();
+
+        if (!$hidden && !$this->hidden && $current !== null) {
+            $this->markRead($current);
+            $this->dispatch(self::EVENT_SCROLL, unread: $this->scrollToUnread);
+            $this->scrollToUnread = false;
+        }
+    }
+
+    /**
+     * Is the window in front of the person: the slide-over is open and the tab is in the foreground.
+     */
+    private function isViewed(): bool
+    {
+        return !$this->hidden && $this->documentHidden !== true;
     }
 
     /**
@@ -293,6 +329,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     {
         $previous = $this->conversation;
         $this->conversation = null;
+        $this->clearDraft();
 
         if ($previous !== null) {
             $this->conversationChanged($previous, null);
@@ -349,6 +386,14 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             return;
         }
 
+        if ($this->referenceType !== null && !$this->mayReference()) {
+            // The record was deleted or closed to the person after it was attached.
+            Notification::make()->title(__('filament-chat::chat.reference_hidden'))->warning()->send();
+            $this->clearReference();
+
+            return;
+        }
+
         try {
             $message = app(ChatService::class)->send($conversation, $user, MessageData::fromArray([
                 'body' => $this->body,
@@ -370,6 +415,17 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $this->unreadMarker = null;
         $this->dispatch(self::EVENT_SCROLL);
         $this->dispatch(self::EVENT_SENT);
+    }
+
+    /**
+     * Is the attached record still there, and may the person see it?
+     */
+    private function mayReference(): bool
+    {
+        $type = app(ChatManager::class)->references->get($this->referenceType);
+        $record = $type !== null && $this->referenceId !== null ? $type->find($this->referenceId) : null;
+
+        return $type !== null && $record !== null && $type->canView($record);
     }
 
     /**
@@ -510,6 +566,20 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         }
     }
 
+    /**
+     * The unsent text belongs to the conversation it was typed in: it must not
+     * reappear in another one, where one Enter would send it to the wrong person.
+     */
+    private function clearDraft(): void
+    {
+        if ($this->body === '') {
+            return;
+        }
+
+        $this->body = '';
+        $this->dispatch(self::EVENT_EDIT, body: ''); // the textarea is cleared on the client too
+    }
+
     public function cancelEdit(): void
     {
         if ($this->editing !== null) {
@@ -532,7 +602,12 @@ class ChatWindow extends Component implements HasActions, HasSchemas
     #[On(self::EVENT_ATTACH)]
     public function attach(string $type, int $id): void
     {
-        if (app(ChatManager::class)->references->get($type) !== null && $id > 0) {
+        // A browser event can carry any type and id: only a record the person may see is taken,
+        // and a refusal looks the same as an unknown type (no way to probe which ids exist).
+        $reference = app(ChatManager::class)->references->get($type);
+        $record = $id > 0 ? $reference?->find($id) : null;
+
+        if ($reference !== null && $record !== null && $reference->canView($record)) {
             $this->referenceType = $type;
             $this->referenceId = $id;
         }
@@ -558,8 +633,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             return;
         }
 
-        $this->referenceType = $reference['type'];
-        $this->referenceId = $reference['id'];
+        $this->attach($reference['type'], $reference['id']);
     }
 
     /**
@@ -583,7 +657,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             ->schema([
                 Select::make('user_id')
                     ->label(__('filament-chat::chat.with'))
-                    ->options(fn (): array => ChatUsers::choices(ChatUsers::current()))
+                    // Searched on the server with a limit: the whole users table must not travel with every render.
+                    ->getSearchResultsUsing(fn (string $search): array => ChatUsers::search($search, ChatUsers::current()))
+                    ->getOptionLabelUsing(fn (mixed $value): ?string => ChatUsers::labels([$value])[$value] ?? null)
                     ->searchable()
                     ->native(false)
                     ->required(),
@@ -648,7 +724,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             ->color('gray')
             ->modalHeading(__('filament-chat::chat.manage_group'))
             ->modalWidth('lg')
-            ->visible(fn (): bool => ($c = $this->current()) !== null && Gate::allows('update', $c))
+            ->visible(fn (): bool => ChatConfig::groups() && ($c = $this->current()) !== null && Gate::allows('update', $c))
             ->fillForm(fn (): array => ($c = $this->current()) === null ? [] : [
                 'title' => $c->title,
                 // The creator is not in the options — a bare key would show; the repository keeps them anyway.
@@ -831,7 +907,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             'avatarsOn' => ChatConfig::avatars(),
             // Explicit flags: an action rendered already in mount() is shown disabled
             // by Filament rather than hidden, so the group buttons render only on these.
-            'canManage' => $current !== null && Gate::allows('update', $current),
+            'canManage' => ChatConfig::groups() && $current !== null && Gate::allows('update', $current),
             'canLeave' => $current !== null && Gate::allows(ConversationPolicy::LEAVE, $current),
             'canAttach' => !$references->isEmpty(),
             'members' => $current !== null && $current->isGroup()
@@ -845,6 +921,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             'polling' => ChatConfig::polling(),
             'color' => ChatConfig::color(),
             'groups' => ChatConfig::groups(),
+            'mentionsOn' => ChatConfig::mentions(),
             'reactionsOn' => ChatConfig::reactions(),
         ]);
     }
@@ -1007,7 +1084,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
     private function markRead(Conversation $conversation): void
     {
-        if ($this->hidden) {
+        if (!$this->isViewed()) {
             return;
         }
 
@@ -1038,7 +1115,8 @@ class ChatWindow extends Component implements HasActions, HasSchemas
                 ->maxLength(120),
             Select::make('member_ids')
                 ->label(__('filament-chat::chat.members'))
-                ->options(fn (): array => ChatUsers::choices(ChatUsers::current()))
+                ->getSearchResultsUsing(fn (string $search): array => ChatUsers::search($search, ChatUsers::current()))
+                ->getOptionLabelsUsing(fn (array $values): array => ChatUsers::labels(array_values($values)))
                 ->multiple()
                 ->searchable()
                 ->native(false)

@@ -105,6 +105,69 @@ final class ChatUsers
     }
 
     /**
+     * Search for a select: key → name of at most `$limit` people whose search columns match every
+     * word, alphabetical. Without search columns the names are filtered here instead.
+     *
+     * @return array<int|string, string>
+     */
+    public static function search(string $term, ?Model $except = null, int $limit = 50): array
+    {
+        $words = preg_split('/\s+/u', trim($term), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $columns = self::searchColumns();
+
+        if ($columns === [] && $words !== []) {
+            return array_slice(array_filter(
+                self::choices($except),
+                fn (string $name): bool => collect($words)->every(fn (string $word): bool => mb_stripos($name, $word) !== false),
+            ), 0, $limit, preserve_keys: true);
+        }
+
+        $query = self::query()->when($except !== null, fn (Builder $query): Builder => $query->whereKeyNot($except?->getKey()));
+
+        foreach ($words as $word) {
+            $like = '%'.$word.'%';
+
+            $query->where(function (Builder $any) use ($columns, $like): void {
+                foreach ($columns as $column) {
+                    $any->orWhereLike($any->getModel()->qualifyColumn($column), $like);
+                }
+            });
+        }
+
+        $options = [];
+
+        foreach ($query->limit($limit)->get() as $user) {
+            $options[$user->getKey()] = self::name($user);
+        }
+
+        natcasesort($options);
+
+        return $options;
+    }
+
+    /**
+     * Names of the given people (the labels of a select's current value).
+     *
+     * @param list<int|string> $ids
+     *
+     * @return array<int|string, string>
+     */
+    public static function labels(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $options = [];
+
+        foreach (self::query()->whereKey($ids)->get() as $user) {
+            $options[$user->getKey()] = self::name($user);
+        }
+
+        return $options;
+    }
+
+    /**
      * The subset of the given keys that belongs to people one can write to.
      *
      * @param list<int> $ids

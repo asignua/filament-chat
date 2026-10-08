@@ -8,6 +8,7 @@ use Asignua\FilamentChat\Support\ChatConfig;
 use Illuminate\Broadcasting\InteractsWithBroadcasting;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 
 /**
  * "Something changed in a conversation" — a new message, members, a read
@@ -17,8 +18,11 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
  *
  * Identifiers only: the components re-read the data from the server, so
  * policies — not the socket payload — decide who sees what.
+ *
+ * Inside a caller's transaction it waits for the commit (ShouldDispatchAfterCommit): the
+ * recipients re-read the data on the event and would miss a row that is not committed yet.
  */
-class ChatUpdated implements ShouldBroadcastNow
+class ChatUpdated implements ShouldBroadcastNow, ShouldDispatchAfterCommit
 {
     use InteractsWithBroadcasting;
 
@@ -30,12 +34,15 @@ class ChatUpdated implements ShouldBroadcastNow
 
     /**
      * @param list<string> $recipients broadcast keys of the recipients
+     * @param string|null  $reader     broadcast key of the person whose read pointer moved (a read event
+     *                                 changes nobody else's unread counter)
      */
     public function __construct(
         public readonly array $recipients,
         public readonly string $conversation,
         public readonly ?string $message = null,
         public readonly ?string $author = null,
+        public readonly ?string $reader = null,
     ) {
         // `realtime.connection` — a connection other than the app's default one.
         $this->broadcastVia(ChatConfig::broadcastConnection());
@@ -58,7 +65,7 @@ class ChatUpdated implements ShouldBroadcastNow
     }
 
     /**
-     * @return array{conversation: string, message: string|null, author: string|null}
+     * @return array{conversation: string, message: string|null, author: string|null, reader?: string}
      */
     public function broadcastWith(): array
     {
@@ -66,6 +73,8 @@ class ChatUpdated implements ShouldBroadcastNow
             'conversation' => $this->conversation,
             'message' => $this->message,
             'author' => $this->author,
+            // Only a read event carries it; a message event keeps the old payload.
+            ...($this->reader !== null ? ['reader' => $this->reader] : []),
         ];
     }
 

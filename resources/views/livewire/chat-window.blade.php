@@ -35,11 +35,14 @@
 @use('Asignua\FilamentChat\Support\ChatUsers')
 <div
     @class([
-        'fchat flex overflow-hidden bg-white dark:bg-gray-900',
-        'h-full',
-        'rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10' => !$compact,
+        'fchat fchat-scope',
+        'fchat-framed' => !$compact,
     ])
     @if (!$realtime && $current) wire:poll.{{ $polling }}s="poll" @endif
+    {{-- A tab in the background marks nothing as read (the slide-over's own open/closed state is a separate flag). --}}
+    x-data
+    x-init="if (document.hidden) $wire.setDocumentHidden(true)"
+    x-on:visibilitychange.document="$wire.setDocumentHidden(document.hidden)"
 >
     {{-- Conversation list --}}
     <aside
@@ -89,7 +92,17 @@
                         ])
                     >
                         @if ($counterpart)
-                            <x-filament-panels::avatar.user :user="$counterpart" size="md" class="shrink-0" />
+                            {{-- Through ChatUsers::avatar(), not <x-filament-panels::avatar.user>: that one asks the panel's provider and skips ->avatarUsing(). --}}
+                            @php
+                                $counterpartAvatar = ChatUsers::avatar($counterpart);
+                            @endphp
+                            @if ($counterpartAvatar)
+                                <x-filament::avatar :src="$counterpartAvatar" :alt="ChatUsers::name($counterpart)" size="md" class="fi-user-avatar shrink-0" data-fchat-list-avatar />
+                            @else
+                                <span data-fchat-list-avatar class="fchat-group-avatar fi-color-{{ $color }} flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+                                    {{ mb_strtoupper(mb_substr(ChatUsers::name($counterpart), 0, 1)) }}
+                                </span>
+                            @endif
                         @else
                             <span class="fchat-group-avatar fi-color-{{ $color }} flex size-8 shrink-0 items-center justify-center rounded-full">
                                 <x-filament::icon icon="heroicon-m-user-group" class="size-4" />
@@ -152,10 +165,12 @@
             x-on:dragenter.prevent="depth++"
             x-on:dragleave="depth = Math.max(0, depth - 1)"
             x-on:dragover.prevent="$event.dataTransfer.dropEffect = 'link'"
-            x-on:drop.prevent="
+            x-on:drop="
                 depth = 0
-                const url = $event.dataTransfer.getData('text/uri-list') || $event.dataTransfer.getData('text/plain')
-                if (url) $wire.attachUrl(url)
+                if ($event.dataTransfer.types.includes('text/uri-list') || /^https?:\/\/\S+$/i.test($event.dataTransfer.getData('text/plain').trim())) {
+                    $event.preventDefault()
+                    $wire.attachUrl($event.dataTransfer.getData('text/uri-list') || $event.dataTransfer.getData('text/plain').trim())
+                }
             "
         @endif
     >
@@ -329,7 +344,7 @@
                                     <div data-fchat-deleted class="italic opacity-80">{{ __('filament-chat::chat.message_deleted') }}</div>
                                 @else
                                     @if (trim($message->body) !== '')
-                                        <div class="wrap-anywhere break-words">{{ ChatText::toHtml($message->body, array_intersect_key($names, array_flip($message->mentionIds())), $me?->getKey()) }}</div>
+                                        <div class="wrap-anywhere break-words">{{ ChatText::toHtml($message->body, $mentionsOn ? array_intersect_key($names, array_flip($message->mentionIds())) : [], $me?->getKey()) }}</div>
                                     @endif
                                     @if ($reference)
                                         @include('filament-chat::livewire.reference', ['reference' => $reference, 'mine' => $mine])
@@ -554,6 +569,8 @@
                                     this.$nextTick(() => this.$refs.list?.querySelectorAll('li')[this.index]?.scrollIntoView({ block: 'nearest' }))
                                 },
                                 key(event) {
+                                    // Enter that confirms an IME candidate (Japanese, Chinese, Korean…) is not "send".
+                                    if (event.isComposing || event.keyCode === 229) return
                                     if (this.open) {
                                         if (event.key === 'ArrowDown') { event.preventDefault(); this.index = (this.index + 1) % this.items.length; this.reveal(); return }
                                         if (event.key === 'ArrowUp') { event.preventDefault(); this.index = (this.index - 1 + this.items.length) % this.items.length; this.reveal(); return }

@@ -13,4 +13,16 @@
             }
         } catch (e) {}
     </script>
+    {{-- With ->spa() Livewire swaps the class of <html> on every navigation and does not re-run the script above. --}}
+    <script data-navigate-once>
+        document.addEventListener('livewire:navigated', () => {
+            try {
+                // The slide-over of the new page (hooks/dock-panel) re-applies it in init(); this covers the gap before it mounts.
+                document.documentElement.classList.toggle(
+                    @js(ChatDock::PINNED_CLASS),
+                    window.localStorage.getItem(@js(ChatDock::STORAGE_PINNED)) === '1' && !document.querySelector('.fchat-page'),
+                );
+            } catch (e) {}
+        });
+    </script>
 @endif

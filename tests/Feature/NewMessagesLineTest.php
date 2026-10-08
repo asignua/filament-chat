@@ -6,6 +6,7 @@ namespace Asignua\FilamentChat\Tests\Feature;
 
 use Asignua\FilamentChat\Livewire\ChatWindow;
 use Asignua\FilamentChat\Pages\Chat;
+use Asignua\FilamentChat\Repositories\ConversationRepository;
 use Asignua\FilamentChat\Tests\TestCase;
 use Livewire\Livewire;
 
@@ -18,12 +19,12 @@ class NewMessagesLineTest extends TestCase
         $direct = $this->direct($me, $olga);
         $this->send($direct, $olga, 'Earlier text');
         $this->actingAs($me);
-        Livewire::test(ChatWindow::class)->call('open', $direct->ulid); // reads "Earlier text"
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)->call('open', $direct->ulid); // reads "Earlier text"
         $first = $this->send($direct, $olga, 'First fresh');
         $this->send($direct, $olga, 'Second fresh');
 
         // Distinct words: short ones ("old") also occur inside CSS classes ("font-semibold").
-        Livewire::test(ChatWindow::class)
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)
             ->call('open', $direct->ulid)
             ->assertSet('unreadMarker', $first->id)
             ->assertSeeHtmlInOrder(['Earlier text', 'data-fchat-unread', 'First fresh', 'Second fresh'])
@@ -37,9 +38,9 @@ class NewMessagesLineTest extends TestCase
         $direct = $this->direct($me, $olga);
         $this->send($direct, $olga, 'hi');
         $this->actingAs($me);
-        Livewire::test(ChatWindow::class)->call('open', $direct->ulid);
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)->call('open', $direct->ulid);
 
-        Livewire::test(ChatWindow::class)
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)
             ->call('open', $direct->ulid)
             ->assertSet('unreadMarker', null)
             ->assertDontSeeHtml('data-fchat-unread');
@@ -69,9 +70,9 @@ class NewMessagesLineTest extends TestCase
         $direct = $this->direct($me, $olga);
         $this->send($direct, $olga, 'read already');
         $this->actingAs($me);
-        Livewire::test(ChatWindow::class)->call('open', $direct->ulid);
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)->call('open', $direct->ulid);
 
-        $window = Livewire::test(ChatWindow::class)->call('open', $direct->ulid);
+        $window = Livewire::test(ChatWindow::class)->set('documentHidden', false)->call('open', $direct->ulid);
         $this->send($direct, $olga, 'live');
 
         $window->call('poll')->assertSee('live')->assertDontSeeHtml('data-fchat-unread');
@@ -139,7 +140,7 @@ class NewMessagesLineTest extends TestCase
         $first = $this->send($direct, $olga, 'fresh');
         $this->actingAs($me);
 
-        Livewire::test(ChatWindow::class)
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)
             ->call('open', $direct->ulid)
             ->assertDispatched(ChatWindow::EVENT_SCROLL, unread: true)
             ->call('open', $direct->ulid)
@@ -156,7 +157,7 @@ class NewMessagesLineTest extends TestCase
         $first = $this->send($direct, $olga, 'fresh');
         $this->actingAs($me);
 
-        Livewire::test(ChatWindow::class)
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)
             ->call('setVisible', false)
             ->call('open', $direct->ulid)
             ->assertSet('unreadMarker', $first->id)
@@ -175,12 +176,12 @@ class NewMessagesLineTest extends TestCase
         $group = $this->group($me, 'Team', $olga, $ivan);
         $this->send($group, $olga, 'while a member');
         $this->actingAs($me);
-        Livewire::test(ChatWindow::class)->call('open', $group->ulid);
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)->call('open', $group->ulid);
         app(\Asignua\FilamentChat\Services\ChatService::class)->leave($group, $me);
         $this->travel(5)->seconds(); // created_at has one-second precision
         $this->send($group, $olga, 'after I left');
 
-        Livewire::test(ChatWindow::class)
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)
             ->call('open', $group->ulid)
             ->assertSet('unreadMarker', null);
     }
@@ -198,6 +199,29 @@ class NewMessagesLineTest extends TestCase
             ->test(ChatWindow::class, ['conversation' => $direct->ulid])
             ->assertSet('unreadMarker', $first->id)
             ->assertSeeHtml('data-fchat-unread')
-            ->assertDispatched(ChatWindow::EVENT_SCROLL, unread: true);
+            ->assertSet('documentHidden', null);
+    }
+
+    public function test_a_background_tab_reported_by_x_init_stops_marking_read(): void
+    {
+        $me = $this->user();
+        $olga = $this->user();
+        $direct = $this->direct($me, $olga);
+        $this->send($direct, $olga, 'fresh');
+        $this->actingAs($me);
+
+        // x-init reports a tab opened in the background; from then on incoming messages stay unread.
+        $window = Livewire::withQueryParams([Chat::QUERY_CONVERSATION => $direct->ulid])
+            ->test(ChatWindow::class, ['conversation' => $direct->ulid])
+            ->call('setDocumentHidden', true);
+
+        $later = $this->send($direct, $olga, 'later');
+        $window->call('onChatUpdated', ['conversation' => $direct->ulid, 'message' => $later->ulid]);
+
+        $this->assertSame(1, app(ConversationRepository::class)->unreadTotalFor($me));
+
+        $window->call('setDocumentHidden', false);
+
+        $this->assertSame(0, app(ConversationRepository::class)->unreadTotalFor($me));
     }
 }

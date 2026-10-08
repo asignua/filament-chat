@@ -2,6 +2,25 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## Unreleased
+
+- Fixed (CSS): the stylesheet emitted bare utilities (`.hidden`, `.flex`, `.bg-white` …) after the panel's theme and overrode the host's `hidden lg:block`, `dark:bg-gray-900` and similar on its own pages. Utilities are now scoped under `.fchat-scope`; the window root, the slide-over wrapper and the Chat page carry it, and the window root and the dock button use plain `.fchat` / `.fchat-dock-button` rules. A **published** `pages/chat` or `hooks/dock-panel` view needs the `fchat-scope` wrapper.
+- Fixed: an unsent draft followed you into the next conversation and could be sent to the wrong person; it is cleared on a conversation change and on "back".
+- Fixed: a browser tab in the background no longer marks messages as read (`visibilitychange` → `ChatWindow::setDocumentHidden()`); a tab opened in the background (middle-click on a link, a pinned dock) is reported hidden by the window's `x-init`. Until a report arrives the tab counts as visible, so a **published** `livewire/chat-window` view without the hook keeps the old behaviour (marks read) instead of never marking anything. To get the new behaviour, a published view's root needs: the `fchat-scope` class (next to `fchat`), `x-data`, `x-init="if (document.hidden) $wire.setDocumentHidden(true)"` and `x-on:visibilitychange.document="$wire.setDocumentHidden(document.hidden)"`.
+- Performance: a read pointer move is broadcast only to the authors of the messages it passed (and the reader's own tabs), not to every member; with read receipts off only to the reader. The dock button skips the re-render for somebody else's read (`ChatUpdated::$reader`, set only on read events).
+- Fixed: in SPA mode (`->spa()`) the pinned slide-over kept covering the page after the first navigation — the `fchat-pinned` class is re-applied.
+- Fixed: `->realtime()` on the plugin now decides whether the private channel and `/broadcasting/auth` are registered (they were decided before the panel was built). The route and the channel use the panel's auth guard; Echo takes the URL of an existing `broadcasting.auth` route.
+- Hardening: `attach()` takes only a record the person may view; `send()` re-checks it; `referenceType` / `referenceId` are `#[Locked]`.
+- Fixed: Enter that confirms an IME candidate no longer sends the message; text can be dragged into the composer again (only links are taken as record references); Escape that closes a modal or dropdown no longer closes the slide-over.
+- Fixed: links no longer swallow trailing punctuation, escaped quotes or angle brackets.
+- Fixed: with `groups(false)` the "Manage group" button is hidden; with `mentions(false)` mentions in old messages are not highlighted. README states that existing groups keep working.
+- Fixed: `ChatUpdated` waits for the commit of a caller's outer transaction (`ShouldDispatchAfterCommit`).
+- Performance: the "New direct" and group member selects search on the server (50 results) instead of loading the whole users table (`ChatUsers::search()`, `ChatUsers::labels()`). The conversation list itself is still unbounded.
+
+## v1.3.1 - 2026-10-07
+
+- Fixed: the conversation list ignored `->avatarUsing()` for direct conversations — it drew the person through `<x-filament-panels::avatar.user>`, i.e. the panel's avatar provider. It now uses the same URL as the feed, the @ list and the member line, and shows initials when the closure returns null.
+
 ## v1.3.0 - 2026-10-06
 
 Extension seams for add-on packages; the chat itself does not change (README, Extending).

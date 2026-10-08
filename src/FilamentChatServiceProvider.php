@@ -17,6 +17,7 @@ use Asignua\FilamentChat\Services\ChatService;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\ChatUsers;
+use Filament\PanelRegistry;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Database\Eloquent\Model;
@@ -69,21 +70,32 @@ class FilamentChatServiceProvider extends PackageServiceProvider
         Gate::policy(ChatConfig::conversationModel(), ConversationPolicy::class);
         Gate::policy(ChatConfig::messageModel(), MessagePolicy::class);
 
-        if (ChatConfig::realtime()) {
+        // Not here: Filament builds panels lazily (its own provider resolves the PanelRegistry, and it
+        // boots after this one — alphabetically), so `->realtime()` on the plugin is applied only
+        // later. Read now, the config would still say what .env says.
+        $this->app->booted(function (): void {
+            app(PanelRegistry::class);
+
+            if (!ChatConfig::realtime()) {
+                return;
+            }
+
+            // The panel's guard, not the default one: a panel on `->authGuard('admin')` has nobody on `web`.
+            $guard = app(ChatManager::class)->panel()?->getAuthGuard();
+
             // A person listens only to their own channel, and only while they may chat at all
             // (an archived or deactivated account loses it with the next auth request).
             Broadcast::channel(
                 ChatUpdated::CHANNEL.'{key}',
                 fn (Model $user, string $key): bool => ChatUsers::broadcastKey($user) === $key
                     && ChatUsers::query()->whereKey($user->getKey())->exists(),
+                $guard !== null ? ['guards' => [$guard]] : [],
             );
 
             // Private channels need /broadcasting/auth; many panels never set broadcasting up.
-            $this->app->booted(function (): void {
-                if (ChatConfig::registerAuthRoute() && !Route::has('broadcasting.auth')) {
-                    Broadcast::routes(['middleware' => ['web', 'auth']]);
-                }
-            });
-        }
+            if (ChatConfig::registerAuthRoute() && !Route::has('broadcasting.auth')) {
+                Broadcast::routes(['middleware' => ['web', $guard !== null ? 'auth:'.$guard : 'auth']]);
+            }
+        });
     }
 }

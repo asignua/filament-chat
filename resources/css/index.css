@@ -16,10 +16,48 @@
 
 @reference '../../vendor/filament/filament/resources/css/theme.css';
 
-@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+/*
+ * The utilities are emitted under `.fchat-scope` (the window root, the slide-over and the Chat page
+ * wrapper carry it): bare `.hidden` / `.flex` / `.bg-white` in the host's page, loaded after
+ * its theme, would beat the theme's `lg:block`, `dark:bg-gray-900`. Every utility is therefore a
+ * descendant selector, so an element that itself carries a utility needs a scoped parent — the
+ * window root and the dock button use the plain classes below instead.
+ */
+@layer utilities {
+    .fchat-scope {
+        @tailwind utilities;
+    }
+}
 
 @source '../views';
 @source inline('underline break-all');
+
+/* The window root: it is the scope itself, so it cannot use the scoped utilities. */
+.fchat {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--color-white, #fff);
+}
+
+.fchat:where(.dark, .dark *) {
+    background-color: var(--gray-900);
+}
+
+.fchat-framed {
+    border-radius: 0.75rem;
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--gray-950) 5%, transparent);
+}
+
+.fchat-framed:where(.dark, .dark *) {
+    box-shadow: 0 0 0 1px color-mix(in oklab, white 10%, transparent);
+}
+
+/* The button in the top bar (the root of the dock component). */
+.fchat-dock-button {
+    display: flex;
+    align-items: center;
+}
 
 /* Group avatar and author name in a group — the accent colour (fi-color-{color} provides --color-*). */
 .fchat-group-avatar {

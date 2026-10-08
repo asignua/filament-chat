@@ -99,6 +99,43 @@ class AvatarsTest extends TestCase
         $this->assertStringNotContainsString('data-fchat-avatar src="https://cdn.test/u'.$me->id.'.png"', $html);
     }
 
+    public function test_conversation_list_uses_the_plugin_closure(): void
+    {
+        app(ChatManager::class)->avatarUsing = fn (Model $user): string => 'https://cdn.test/u'.$user->getKey().'.png';
+        $me = $this->user();
+        $olga = $this->user(['name' => 'Olga']);
+        $this->send($this->direct($me, $olga), $olga, 'hello');
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)
+            ->assertSeeHtml('src="https://cdn.test/u'.$olga->id.'.png"')
+            ->assertDontSeeHtml('ui-avatars.com');
+    }
+
+    public function test_conversation_list_falls_back_to_initials_when_the_closure_returns_null(): void
+    {
+        app(ChatManager::class)->avatarUsing = fn (Model $user): ?string => null;
+        $me = $this->user();
+        $olga = $this->user(['name' => 'Olga']);
+        $this->send($this->direct($me, $olga), $olga, 'hello');
+        $this->actingAs($me);
+
+        $html = Livewire::test(ChatWindow::class)->html();
+
+        $this->assertStringNotContainsString('ui-avatars.com', $html);
+        $this->assertMatchesRegularExpression('/<span data-fchat-list-avatar[^>]*>\s*O\s*<\/span>/', $html);
+    }
+
+    public function test_conversation_list_without_a_closure_uses_filaments_provider(): void
+    {
+        $me = $this->user();
+        $olga = $this->user(['name' => 'Olga Green']);
+        $this->send($this->direct($me, $olga), $olga, 'hello');
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)->assertSeeHtml('ui-avatars.com');
+    }
+
     public function test_direct_feed_has_no_avatars_next_to_messages(): void
     {
         app(ChatManager::class)->avatarUsing = fn (Model $user): string => 'https://cdn.test/u'.$user->getKey().'.png';

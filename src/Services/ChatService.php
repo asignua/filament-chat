@@ -155,17 +155,37 @@ class ChatService
     }
 
     /**
-     * The person has read up to `$messageId`. Members are told only when the
-     * pointer moved: the author gets ✓✓, and reading again sends nothing, so
-     * there is no "read → event → read" loop.
+     * The person has read up to `$messageId`. Others are told only when the
+     * pointer moved: the authors of the messages it passed get ✓✓, and reading
+     * again sends nothing, so there is no "read → event → read" loop. A read
+     * reaches those authors (and the reader's own tabs) rather than the whole
+     * group — in a big group every member's window would otherwise re-render
+     * for every other member's read, which is quadratic. With read receipts
+     * off only the reader's own tabs are told (their unread counter).
      */
     public function markRead(Conversation $conversation, Model $user, int $messageId): bool
     {
+        $before = $this->conversations->participant($conversation, $user)?->last_read_message_id;
+
         if (!$this->conversations->markRead($conversation, $user, $messageId)) {
             return false;
         }
 
-        $this->broadcast($conversation, $this->conversations->activeMemberKeys($conversation));
+        $keys = [ChatUsers::broadcastKey($user)];
+
+        if (ChatConfig::readReceipts()) {
+            $authors = array_diff($this->messages->authorIdsBetween($conversation, $before, $messageId), [(int) $user->getKey()]);
+
+            if ($authors !== []) {
+                $model = ChatConfig::userModel();
+
+                foreach ($model::query()->whereKey($authors)->get() as $author) {
+                    $keys[] = ChatUsers::broadcastKey($author);
+                }
+            }
+        }
+
+        $this->broadcast($conversation, $keys, reader: ChatUsers::broadcastKey($user));
 
         return true;
     }
@@ -249,7 +269,7 @@ class ChatService
      *
      * @param list<string> $keys
      */
-    private function broadcast(Conversation $conversation, array $keys, ?Message $message = null, ?Model $author = null): void
+    private function broadcast(Conversation $conversation, array $keys, ?Message $message = null, ?Model $author = null, ?string $reader = null): void
     {
         $recipients = array_values(array_unique($keys));
 
@@ -263,6 +283,7 @@ class ChatService
                 $conversation->ulid,
                 $message?->ulid,
                 $author !== null ? ChatUsers::broadcastKey($author) : null,
+                $reader,
             ));
         } catch (Throwable $e) {
             report($e);

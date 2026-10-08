@@ -249,7 +249,7 @@ class ExtensionSeamsTest extends TestCase
         $this->send($conversation, $me, 'One');
         $this->actingAs($me);
 
-        Livewire::test(ExtendedChatWindow::class)->call('open', $conversation->ulid);
+        Livewire::test(ExtendedChatWindow::class)->set('documentHidden', false)->call('open', $conversation->ulid);
 
         $this->assertGreaterThanOrEqual(4, count(array_keys(ExtendedChatWindow::$log, 'query', true)), 'open + render: page, older, unread, read pointer');
     }

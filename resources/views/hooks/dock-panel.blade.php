@@ -21,11 +21,13 @@
 @use('Asignua\FilamentChat\Support\ChatConfig')
 @if (auth()->check() && !request()->routeIs(Chat::getRouteName()))
     <div
+        class="fchat-scope"
         x-data="{
             open: false,
             pinned: false,
             ready: false,
             pending: null,
+            escapeTaken: false,
             read(key) {
                 try { return window.localStorage.getItem(key) } catch (e) { return null }
             },
@@ -34,6 +36,8 @@
             },
             init() {
                 this.pinned = @js($pinnable) && this.read(@js(ChatDock::STORAGE_PINNED)) === '1'
+                // wire:navigate replaces the class of <html> with the server's: put it back (hooks/pinned only runs on a full load).
+                document.documentElement.classList.toggle(@js(ChatDock::PINNED_CLASS), this.pinned)
                 if (this.pinned) {
                     // Pinned: open right away, no animation, on the last conversation.
                     this.open = true
@@ -77,7 +81,9 @@
         x-on:{{ ChatDock::EVENT_OPEN_DOCK }}.window="show($event.detail?.conversation)"
         x-on:{{ ChatWindow::EVENT_READY }}.window="windowReady()"
         x-on:{{ ChatWindow::EVENT_OPENED }}.window="remember($event.detail?.conversation)"
-        x-on:keydown.escape.window="open && ! pinned && set(false)"
+        {{-- Escape belongs to an open modal or dropdown first. The capture listener looks before they close themselves; the bubbling one acts. --}}
+        x-on:keydown.escape.capture.window="escapeTaken = !! (document.querySelector('.fi-modal-open') || document.activeElement?.closest('[aria-expanded=true]'))"
+        x-on:keydown.escape.window="if (open && ! pinned && ! escapeTaken && ! $event.defaultPrevented) set(false)"
     >
         <div
             x-show="open"

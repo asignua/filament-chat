@@ -119,6 +119,7 @@ class ChatWindowTest extends TestCase
         $this->actingAs($me);
 
         $window = Livewire::test(ChatWindow::class, ['compact' => true])
+            ->set('documentHidden', false)
             ->call('setVisible', false)
             ->call('open', $conversation->ulid);
 

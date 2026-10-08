@@ -100,11 +100,20 @@ class ChatDock extends Component
      */
     public function onChatUpdated(array $payload): void
     {
-        if ($this->quiet || !ChatConfig::toasts()) {
+        $user = ChatUsers::current();
+        $reader = $payload['reader'] ?? null;
+
+        // Somebody else's read moves nobody's counter but theirs; the button needs no round trip for it.
+        // The person's own reads come through EVENT_READ (this tab) or this very event (another tab).
+        if (is_string($reader) && ($user === null || $reader !== ChatUsers::broadcastKey($user))) {
+            $this->skipRender();
+
             return;
         }
 
-        $user = ChatUsers::current();
+        if ($this->quiet || !ChatConfig::toasts()) {
+            return;
+        }
         $ulid = $payload['conversation'] ?? null;
         $messageUlid = $payload['message'] ?? null;
 

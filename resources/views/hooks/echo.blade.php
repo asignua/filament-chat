@@ -5,6 +5,7 @@
     they subscribe. An Echo created by the app or by Filament's own config is left alone.
 --}}
 @use('Asignua\FilamentChat\Support\ChatConfig')
+@use('Illuminate\Support\Facades\Route')
 @if (auth()->check() && ChatConfig::realtime() && ChatConfig::echoSource() === ChatConfig::ECHO_PLUGIN)
     <script data-navigate-once>
         (() => {
@@ -23,7 +24,8 @@
                 forceTLS: tls,
                 enabledTransports: ['ws', 'wss'],
                 disableStats: true,
-                authEndpoint: @js(url('/broadcasting/auth')),
+                // The app's own route (maybe under a prefix) when there is one; otherwise the one the plugin registers.
+                authEndpoint: @js(Route::has('broadcasting.auth') ? route('broadcasting.auth') : url('/broadcasting/auth')),
             };
 
             // Pusher Channels (cloud) is addressed by its cluster; Reverb and self-hosted

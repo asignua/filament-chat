@@ -308,6 +308,7 @@ class FilamentChatPlugin implements Plugin
             // After the panel's theme, not before it as auto-loaded plugin assets are: a
             // custom theme compiles the same utilities (`.bg-white`), and with equal
             // specificity the later file wins — the theme would beat our `dark:` variants.
+            // Ours sit under `.fchat-scope`, so being later cannot hurt the host's own pages.
             ->renderHook(PanelsRenderHook::STYLES_AFTER, fn (): string => '<link rel="stylesheet" href="'
                 .e(FilamentAsset::getStyleHref(FilamentChatServiceProvider::STYLESHEET, FilamentChatServiceProvider::PACKAGE)).'" />')
             ->renderHook(PanelsRenderHook::HEAD_START, fn (): string => ChatConfig::dock() && ChatConfig::pinnable() ? view('filament-chat::hooks.pinned')->render() : '')

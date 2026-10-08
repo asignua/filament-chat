@@ -132,9 +132,9 @@ class RepliesTest extends TestCase
         }
         $this->actingAs($me);
         // Read it all first: unread messages would raise the limit through the «New messages» line.
-        Livewire::test(ChatWindow::class)->call('open', $direct->ulid);
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)->call('open', $direct->ulid);
 
-        Livewire::test(ChatWindow::class)
+        Livewire::test(ChatWindow::class)->set('documentHidden', false)
             ->call('open', $direct->ulid)
             ->assertDontSee('Very old')
             ->call('showMessage', $original->ulid)

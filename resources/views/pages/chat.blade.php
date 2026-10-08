@@ -6,20 +6,22 @@
 --}}
 @use('Asignua\FilamentChat\Support\ChatConfig')
 <x-filament-panels::page>
-    <div
-        class="min-h-[28rem]"
-        x-data="{
-            fit() {
-                // First down to the screen bottom, then minus whatever is left below (page paddings).
-                let height = window.innerHeight - ($el.getBoundingClientRect().top + window.scrollY)
-                $el.style.height = height + 'px'
-                height -= Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
-                $el.style.height = Math.max(448, height) + 'px'
-            },
-        }"
-        x-init="$nextTick(() => fit())"
-        x-on:resize.window.debounce.100ms="fit()"
-    >
-        @livewire(ChatConfig::windowComponent(), ['conversation' => $this->initialConversation()], key('filament-chat-page-window'))
+    <div class="fchat-scope">
+        <div
+            class="min-h-[28rem]"
+            x-data="{
+                fit() {
+                    // First down to the screen bottom, then minus whatever is left below (page paddings).
+                    let height = window.innerHeight - ($el.getBoundingClientRect().top + window.scrollY)
+                    $el.style.height = height + 'px'
+                    height -= Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+                    $el.style.height = Math.max(448, height) + 'px'
+                },
+            }"
+            x-init="$nextTick(() => fit())"
+            x-on:resize.window.debounce.100ms="fit()"
+        >
+            @livewire(ChatConfig::windowComponent(), ['conversation' => $this->initialConversation()], key('filament-chat-page-window'))
+        </div>
     </div>
 </x-filament-panels::page>
