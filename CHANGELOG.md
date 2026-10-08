@@ -2,7 +2,7 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
-## Unreleased
+## v1.4.0 - 2026-10-08
 
 - Fixed (CSS): the stylesheet emitted bare utilities (`.hidden`, `.flex`, `.bg-white` …) after the panel's theme and overrode the host's `hidden lg:block`, `dark:bg-gray-900` and similar on its own pages. Utilities are now scoped under `.fchat-scope`; the window root, the slide-over wrapper and the Chat page carry it, and the window root and the dock button use plain `.fchat` / `.fchat-dock-button` rules. A **published** `pages/chat` or `hooks/dock-panel` view needs the `fchat-scope` wrapper.
 - Fixed: an unsent draft followed you into the next conversation and could be sent to the wrong person; it is cleared on a conversation change and on "back".
@@ -16,8 +16,6 @@ All notable changes to `asignua/filament-chat` are documented here.
 - Fixed: with `groups(false)` the "Manage group" button is hidden; with `mentions(false)` mentions in old messages are not highlighted. README states that existing groups keep working.
 - Fixed: `ChatUpdated` waits for the commit of a caller's outer transaction (`ShouldDispatchAfterCommit`).
 - Performance: the "New direct" and group member selects search on the server (50 results) instead of loading the whole users table (`ChatUsers::search()`, `ChatUsers::labels()`). The conversation list itself is still unbounded.
-
-## v1.3.1 - 2026-10-07
 
 - Fixed: the conversation list ignored `->avatarUsing()` for direct conversations — it drew the person through `<x-filament-panels::avatar.user>`, i.e. the panel's avatar provider. It now uses the same URL as the feed, the @ list and the member line, and shows initials when the closure returns null.
 
