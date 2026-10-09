@@ -2,7 +2,7 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
-## v1.4.1 - unreleased
+## v1.4.1 - 2026-10-09
 
 - Fixed: the composer lost Enter-to-send (including Ctrl/Cmd+Enter) and auto-grow in v1.4.0. A double quote inside a JS comment of its inline Alpine object ended the `x-data` attribute, so Alpine never built the component. A test now parses every inline Alpine object of the window as the browser does. A **published** `livewire/chat-window` view copied from v1.4.0 has the same bug: remove the double quotes from the comment in the composer `x-data`.
 
