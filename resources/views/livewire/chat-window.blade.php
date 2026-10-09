@@ -569,7 +569,7 @@
                                     this.$nextTick(() => this.$refs.list?.querySelectorAll('li')[this.index]?.scrollIntoView({ block: 'nearest' }))
                                 },
                                 key(event) {
-                                    // Enter that confirms an IME candidate (Japanese, Chinese, Korean…) is not "send".
+                                    // Enter that confirms an IME candidate (Japanese, Chinese, Korean…) is not a send (no double quotes in here: they would end the x-data attribute).
                                     if (event.isComposing || event.keyCode === 229) return
                                     if (this.open) {
                                         if (event.key === 'ArrowDown') { event.preventDefault(); this.index = (this.index + 1) % this.items.length; this.reveal(); return }

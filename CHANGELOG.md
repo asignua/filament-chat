@@ -2,6 +2,10 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.4.1 - unreleased
+
+- Fixed: the composer lost Enter-to-send (including Ctrl/Cmd+Enter) and auto-grow in v1.4.0. A double quote inside a JS comment of its inline Alpine object ended the `x-data` attribute, so Alpine never built the component. A test now parses every inline Alpine object of the window as the browser does. A **published** `livewire/chat-window` view copied from v1.4.0 has the same bug: remove the double quotes from the comment in the composer `x-data`.
+
 ## v1.4.0 - 2026-10-08
 
 - Fixed (CSS): the stylesheet emitted bare utilities (`.hidden`, `.flex`, `.bg-white` …) after the panel's theme and overrode the host's `hidden lg:block`, `dark:bg-gray-900` and similar on its own pages. Utilities are now scoped under `.fchat-scope`; the window root, the slide-over wrapper and the Chat page carry it, and the window root and the dock button use plain `.fchat` / `.fchat-dock-button` rules. A **published** `pages/chat` or `hooks/dock-panel` view needs the `fchat-scope` wrapper.

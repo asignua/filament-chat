@@ -12,6 +12,9 @@ use Asignua\FilamentChat\Pages\Chat;
 use Asignua\FilamentChat\Repositories\ConversationRepository;
 use Asignua\FilamentChat\Services\ChatService;
 use Asignua\FilamentChat\Tests\TestCase;
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
@@ -257,6 +260,43 @@ class ChatWindowTest extends TestCase
             ->assertSeeHtml('wire:key="fchat-conversation"')
             ->assertSeeHtml('wire:key="fchat-composer"')
             ->assertSeeHtml('data-gramm="false"');
+    }
+
+    /**
+     * A double quote inside an inline Alpine object (even in a JS comment) ends the HTML attribute: the browser then
+     * sees a truncated x-data, Alpine throws, and the composer silently loses Enter-to-send and auto-grow (v1.4.0).
+     */
+    public function test_every_inline_alpine_object_reaches_the_browser_whole(): void
+    {
+        $me = $this->user();
+        $conversation = $this->direct($me, $this->user());
+        $this->actingAs($me);
+
+        $html = Livewire::test(ChatWindow::class)->call('open', $conversation->ulid)->html();
+
+        $document = new DOMDocument;
+        libxml_use_internal_errors(true);
+        $document->loadHTML('<?xml encoding="utf-8"?>'.$html);
+        libxml_clear_errors();
+
+        $objects = 0;
+        $composer = false;
+
+        foreach ((new DOMXPath($document))->query('//*[@x-data]') ?: [] as $element) {
+            $value = trim($element instanceof DOMElement ? $element->getAttribute('x-data') : '');
+
+            if (!str_starts_with($value, '{')) {
+                continue;
+            }
+
+            $objects++;
+            $this->assertStringEndsWith('}', $value, 'Truncated x-data: '.mb_substr($value, -120));
+            $this->assertSame(substr_count($value, '{'), substr_count($value, '}'), 'Unbalanced x-data: '.mb_substr($value, 0, 120));
+            $composer = $composer || str_contains($value, 'cancelReply');
+        }
+
+        $this->assertGreaterThan(0, $objects);
+        $this->assertTrue($composer, 'The composer x-data (with its key handler) did not survive parsing.');
     }
 
     public function test_panel_window_announces_it_is_ready(): void
