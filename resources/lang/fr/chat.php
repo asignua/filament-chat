@@ -11,6 +11,7 @@ return [
     'new_direct' => 'Nouveau message',
     'new_group' => 'Nouveau groupe',
     'with' => 'À',
+    'people_preload_hint' => 'Les :count premiers sur :total — tapez un nom pour trouver les autres.',
     'start' => 'Démarrer la conversation',
     'create_group' => 'Créer le groupe',
     'manage_group' => 'Paramètres du groupe',

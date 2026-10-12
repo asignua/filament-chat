@@ -2,6 +2,10 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.4.2 - 2026-10-12
+
+- Fixed: the "New direct" and group member selects opened empty ("Start typing to search…") — nobody to pick until you typed. They now open with the first 20 people (`ChatUsers::PRELOAD`), sorted by `user.search_columns` in their order, and, when there are more, a hint under the field: "Showing the first 20 of N — start typing a name to find the others." Search on the server is unchanged. New keys `people_preload_hint` in every language (a **published** translation needs it).
+
 ## v1.4.1 - 2026-10-09
 
 - Fixed: the composer lost Enter-to-send (including Ctrl/Cmd+Enter) and auto-grow in v1.4.0. A double quote inside a JS comment of its inline Alpine object ended the `x-data` attribute, so Alpine never built the component. A test now parses every inline Alpine object of the window as the browser does. A **published** `livewire/chat-window` view copied from v1.4.0 has the same bug: remove the double quotes from the comment in the composer `x-data`.

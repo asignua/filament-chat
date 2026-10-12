@@ -11,6 +11,7 @@ return [
     'new_direct' => 'Yeni mesaj',
     'new_group' => 'Yeni grup',
     'with' => 'Kime',
+    'people_preload_hint' => ':total kişiden ilk :count gösteriliyor — diğerlerini bulmak için bir ad yazın.',
     'start' => 'Sohbet başlat',
     'create_group' => 'Grup oluştur',
     'manage_group' => 'Grup ayarları',

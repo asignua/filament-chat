@@ -657,9 +657,12 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             ->schema([
                 Select::make('user_id')
                     ->label(__('filament-chat::chat.with'))
-                    // Searched on the server with a limit: the whole users table must not travel with every render.
+                    // Opens with the first few people; the rest are searched on the server with a limit —
+                    // the whole users table must not travel with every render.
+                    ->options(fn (): array => ChatUsers::preload(ChatUsers::current()))
                     ->getSearchResultsUsing(fn (string $search): array => ChatUsers::search($search, ChatUsers::current()))
                     ->getOptionLabelUsing(fn (mixed $value): ?string => ChatUsers::labels([$value])[$value] ?? null)
+                    ->helperText(fn (): ?string => ChatUsers::preloadHint(ChatUsers::current()))
                     ->searchable()
                     ->native(false)
                     ->required(),
@@ -1115,8 +1118,10 @@ class ChatWindow extends Component implements HasActions, HasSchemas
                 ->maxLength(120),
             Select::make('member_ids')
                 ->label(__('filament-chat::chat.members'))
+                ->options(fn (): array => ChatUsers::preload(ChatUsers::current()))
                 ->getSearchResultsUsing(fn (string $search): array => ChatUsers::search($search, ChatUsers::current()))
                 ->getOptionLabelsUsing(fn (array $values): array => ChatUsers::labels(array_values($values)))
+                ->helperText(fn (): ?string => ChatUsers::preloadHint(ChatUsers::current()))
                 ->multiple()
                 ->searchable()
                 ->native(false)

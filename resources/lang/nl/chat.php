@@ -11,6 +11,7 @@ return [
     'new_direct' => 'Nieuw bericht',
     'new_group' => 'Nieuwe groep',
     'with' => 'Aan',
+    'people_preload_hint' => 'De eerste :count van :total — typ een naam om de anderen te vinden.',
     'start' => 'Gesprek starten',
     'create_group' => 'Groep aanmaken',
     'manage_group' => 'Groepsinstellingen',

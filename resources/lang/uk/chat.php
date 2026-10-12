@@ -11,6 +11,7 @@ return [
     'new_direct' => 'Написати',
     'new_group' => 'Нова група',
     'with' => 'Кому',
+    'people_preload_hint' => "Показано перших :count із :total — почніть писати ім'я, щоб знайти інших.",
     'start' => 'Почати розмову',
     'create_group' => 'Створити групу',
     'manage_group' => 'Налаштувати групу',

@@ -11,6 +11,7 @@ return [
     'new_direct' => 'Nowa wiadomość',
     'new_group' => 'Nowa grupa',
     'with' => 'Do',
+    'people_preload_hint' => 'Pierwsze :count z :total — zacznij wpisywać imię, aby znaleźć pozostałych.',
     'start' => 'Rozpocznij rozmowę',
     'create_group' => 'Utwórz grupę',
     'manage_group' => 'Ustawienia grupy',

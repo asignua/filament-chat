@@ -15,6 +15,9 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class ChatUsers
 {
+    /** How many people a recipient select lists before anything is typed. */
+    public const PRELOAD = 20;
+
     /**
      * The signed-in person (the panel guard when a panel is serving).
      */
@@ -124,6 +127,13 @@ final class ChatUsers
 
         $query = self::query()->when($except !== null, fn (Builder $query): Builder => $query->whereKeyNot($except?->getKey()));
 
+        // Nothing typed yet: the first `$limit` people alphabetically, not whatever the table returns first.
+        if ($words === []) {
+            foreach ($columns as $column) {
+                $query->orderBy($query->getModel()->qualifyColumn($column));
+            }
+        }
+
         foreach ($words as $word) {
             $like = '%'.$word.'%';
 
@@ -143,6 +153,30 @@ final class ChatUsers
         natcasesort($options);
 
         return $options;
+    }
+
+    /**
+     * The options a recipient select opens with: the first {@see self::PRELOAD} people.
+     *
+     * @return array<int|string, string>
+     */
+    public static function preload(?Model $except = null): array
+    {
+        return self::search('', $except, self::PRELOAD);
+    }
+
+    /**
+     * Hint under a recipient select when more people exist than it opens with.
+     */
+    public static function preloadHint(?Model $except = null): ?string
+    {
+        $total = self::query()->when($except !== null, fn (Builder $query): Builder => $query->whereKeyNot($except?->getKey()))->count();
+
+        if ($total <= self::PRELOAD) {
+            return null;
+        }
+
+        return __('filament-chat::chat.people_preload_hint', ['count' => self::PRELOAD, 'total' => $total]);
     }
 
     /**

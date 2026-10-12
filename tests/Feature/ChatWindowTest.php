@@ -11,10 +11,12 @@ use Asignua\FilamentChat\Models\Message;
 use Asignua\FilamentChat\Pages\Chat;
 use Asignua\FilamentChat\Repositories\ConversationRepository;
 use Asignua\FilamentChat\Services\ChatService;
+use Asignua\FilamentChat\Support\ChatUsers;
 use Asignua\FilamentChat\Tests\TestCase;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
+use Filament\Forms\Components\Select;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
@@ -172,6 +174,40 @@ class ChatWindowTest extends TestCase
         Livewire::test(ChatWindow::class)->callAction('newDirect', ['user_id' => $inactive->id]);
 
         $this->assertSame(2, Conversation::query()->count());
+    }
+
+    public function test_recipient_selects_open_with_the_first_people_and_hint_at_search(): void
+    {
+        $me = $this->user(['name' => 'Aaron Me']);
+        $this->user(['name' => 'Bea Few']);
+        $this->actingAs($me);
+
+        $this->assertSame(['Bea Few'], array_values(ChatUsers::preload($me)));
+        $this->assertNull(ChatUsers::preloadHint($me));
+
+        foreach (range(1, ChatUsers::PRELOAD + 4) as $i) {
+            $this->user(['name' => sprintf('Colleague %02d', $i)]);
+        }
+
+        $total = ChatUsers::PRELOAD + 5;
+        $preload = ChatUsers::preload($me);
+        $hint = __('filament-chat::chat.people_preload_hint', ['count' => ChatUsers::PRELOAD, 'total' => $total]);
+
+        $this->assertCount(ChatUsers::PRELOAD, $preload);
+        $this->assertNotContains('Aaron Me', $preload);
+        $this->assertSame('Bea Few', array_values($preload)[0]);
+        $this->assertSame('Colleague 19', array_values($preload)[ChatUsers::PRELOAD - 1]);
+        $this->assertSame($hint, ChatUsers::preloadHint($me));
+
+        $opensWithPreload = fn (Select $field): bool => $field->getOptions() === $preload;
+
+        Livewire::test(ChatWindow::class)
+            ->mountAction('newDirect')
+            ->assertFormFieldExists('user_id', 'mountedActionSchema0', $opensWithPreload);
+
+        Livewire::test(ChatWindow::class)
+            ->mountAction('newGroup')
+            ->assertFormFieldExists('member_ids', 'mountedActionSchema0', $opensWithPreload);
     }
 
     public function test_group_actions_follow_the_policy(): void

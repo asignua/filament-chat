@@ -134,7 +134,7 @@ FilamentChatPlugin::make()
 'users' => [
     'model' => null,                    // null = auth.providers.users.model
     'name_attribute' => null,           // e.g. 'full_name' — an attribute or accessor
-    'search_columns' => ['name'],       // e.g. ['first_name', 'last_name'] — the conversation search
+    'search_columns' => ['name'],       // e.g. ['first_name', 'last_name'] — the conversation search; their order also sorts the first 20 people a recipient select opens with
     'broadcast_key' => null,            // e.g. 'ulid' — names the private channel (default: the primary key)
 ],
 ```
