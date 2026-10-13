@@ -13,8 +13,10 @@ class InstallCommandTest extends TestCase
     protected function tearDown(): void
     {
         File::delete(config_path('filament-chat.php'));
-        File::delete(File::glob(database_path('migrations/*_create_filament_chat_tables.php')));
-        File::delete(File::glob(database_path('migrations/*_add_reply_to_filament_chat_messages.php')));
+
+        foreach (FilamentChatServiceProvider::MIGRATIONS as $migration) {
+            File::delete(File::glob(database_path("migrations/*_{$migration}.php")));
+        }
 
         parent::tearDown();
     }
@@ -26,6 +28,7 @@ class InstallCommandTest extends TestCase
         $this->assertFileExists(config_path('filament-chat.php'));
         $this->assertCount(1, File::glob(database_path('migrations/*_create_filament_chat_tables.php')));
         $this->assertCount(1, File::glob(database_path('migrations/*_add_reply_to_filament_chat_messages.php')));
+        $this->assertCount(1, File::glob(database_path('migrations/*_add_last_read_at_to_filament_chat_participants.php')));
 
         $this->artisan('filament-chat:install')
             ->expectsOutputToContain('already exists')

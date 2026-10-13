@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property int $conversation_id
  * @property int $user_id
  * @property int|null $last_read_message_id
+ * @property Carbon|null $last_read_at
  * @property Carbon|null $joined_at
  * @property Carbon|null $left_at
  * @property Carbon|null $created_at
@@ -39,6 +40,7 @@ class Participant extends Model
     protected function casts(): array
     {
         return [
+            'last_read_at' => 'datetime',
             'joined_at' => 'datetime',
             'left_at' => 'datetime',
         ];

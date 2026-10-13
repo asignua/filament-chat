@@ -298,7 +298,7 @@ class ConversationRepository
     }
 
     /**
-     * The read pointer only moves forward. Returns whether it actually moved —
+     * The read pointer only moves forward, and the read time with it. Returns whether it actually moved —
      * that decides whether members are told (ChatService::markRead).
      */
     public function markRead(Conversation $conversation, Model $user, int $messageId): bool
@@ -309,7 +309,7 @@ class ConversationRepository
                 ->whereNull('last_read_message_id')
                 ->orWhere('last_read_message_id', '<', $messageId))
             ->toBase()
-            ->update(['last_read_message_id' => $messageId]) > 0;
+            ->update(['last_read_message_id' => $messageId] + (ChatConfig::readTimeAvailable() ? ['last_read_at' => now()] : [])) > 0;
     }
 
     /**

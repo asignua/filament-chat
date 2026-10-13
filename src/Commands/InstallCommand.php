@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat\Commands;
 
+use Asignua\FilamentChat\FilamentChatServiceProvider;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 
@@ -30,7 +31,7 @@ class InstallCommand extends Command
         // laravel-package-tools maps an already published migration onto its existing file
         // and vendor:publish without --force never overwrites, so only the missing ones are added.
         $missing = array_filter(
-            ['create_filament_chat_tables', 'add_reply_to_filament_chat_messages'],
+            FilamentChatServiceProvider::MIGRATIONS,
             fn (string $name): bool => $files->glob(database_path("migrations/*_{$name}.php")) === [],
         );
 

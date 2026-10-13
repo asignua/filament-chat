@@ -34,6 +34,9 @@ class FilamentChatServiceProvider extends PackageServiceProvider
 
     public const string PACKAGE = 'asignua/filament-chat';
 
+    /** Migration stubs, in the order they run (the installer publishes the missing ones). */
+    public const array MIGRATIONS = ['create_filament_chat_tables', 'add_reply_to_filament_chat_messages', 'add_last_read_at_to_filament_chat_participants'];
+
     public const string STYLESHEET = 'filament-chat';
 
     public function configurePackage(Package $package): void
@@ -43,7 +46,7 @@ class FilamentChatServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasViews()
             ->hasTranslations()
-            ->hasMigrations(['create_filament_chat_tables', 'add_reply_to_filament_chat_messages'])
+            ->hasMigrations(self::MIGRATIONS)
             ->hasCommand(InstallCommand::class);
     }
 

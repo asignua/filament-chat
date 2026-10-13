@@ -6,6 +6,7 @@ namespace Asignua\FilamentChat\Tests\Feature;
 
 use Asignua\FilamentChat\Data\MessageData;
 use Asignua\FilamentChat\Livewire\ChatWindow;
+use Asignua\FilamentChat\Repositories\ConversationRepository;
 use Asignua\FilamentChat\Services\ChatService;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Tests\TestCase;
@@ -44,6 +45,17 @@ class WithoutReplyMigrationTest extends TestCase
     {
         $this->assertFalse(ChatConfig::repliesAvailable());
         $this->assertFalse(ChatConfig::replies());
+    }
+
+    public function test_reading_works_without_the_read_time_column(): void
+    {
+        $me = $this->user();
+        $colleague = $this->user();
+        $conversation = $this->direct($me, $colleague);
+        $message = $this->send($conversation, $colleague, 'Hi');
+
+        $this->assertFalse(ChatConfig::readTimeAvailable());
+        $this->assertTrue(app(ConversationRepository::class)->markRead($conversation, $me, $message->id));
     }
 
     public function test_a_plain_message_is_sent(): void

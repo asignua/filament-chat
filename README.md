@@ -398,6 +398,17 @@ php artisan vendor:publish --tag=filament-chat-translations
 Translated the chat into your language? A pull request with `resources/lang/{locale}/chat.php` is
 very welcome.
 
+## Upgrading to 1.5
+
+1.5 adds `last_read_at` to the participants in a third migration, `add_last_read_at_to_filament_chat_participants`:
+
+```bash
+php artisan vendor:publish --tag=filament-chat-migrations   # the migrations you already have are kept
+php artisan migrate
+```
+
+Without it the chat keeps working; only the read time is not stored.
+
 ## Upgrading from 1.1
 
 1.2 adds one column (`reply_to_id`, replies) in a second migration, `add_reply_to_filament_chat_messages`.

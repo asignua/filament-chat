@@ -2,6 +2,13 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## Unreleased (1.5.0)
+
+- Fixed: messages listed or found for a conversation carry it (`setRelation`) — an extension reading `$message->conversation` in a hook no longer lazy-loads per message (a crash under `Model::preventLazyLoading()`).
+- New: `ChatService::changed($conversation)` — an extension tells the members to re-render a conversation (marks on a picture…); no message, no bell.
+- New: browser event `filament-chat-incoming` (`ChatDock::EVENT_INCOMING`, `{conversation, message, open}`) on a new message from someone else — for a sound or a desktop notification; without a socket, when the polled counter grows. Independent of `notifications.toasts`.
+- New: `conversation_participants.last_read_at` — when the person last read the conversation. Third migration `add_last_read_at_to_filament_chat_participants`; without it the chat works as before (`ChatConfig::readTimeAvailable()`).
+
 ## v1.4.2 - 2026-10-12
 
 - Fixed: the "New direct" and group member selects opened empty ("Start typing to search…") — nobody to pick until you typed. They now open with the first 20 people (`ChatUsers::PRELOAD`), sorted by `user.search_columns` in their order, and, when there are more, a hint under the field: "Showing the first 20 of N — start typing a name to find the others." Search on the server is unchanged. New keys `people_preload_hint` in every language (a **published** translation needs it).

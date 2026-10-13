@@ -39,6 +39,9 @@ final class ChatManager
      */
     public ?bool $replyColumn = null;
 
+    /** Whether the participants table has `last_read_at` (see ChatConfig::readTimeAvailable()); null — not yet. */
+    public ?bool $readTimeColumn = null;
+
     public readonly ChatHooks $hooks;
 
     public function __construct(public readonly ReferenceRegistry $references)

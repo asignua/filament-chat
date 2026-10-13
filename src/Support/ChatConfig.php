@@ -162,6 +162,23 @@ final class ChatConfig
         return $manager->replyColumn;
     }
 
+    /**
+     * Whether the participants table has the `last_read_at` column (1.5). Without it the read pointer moves as
+     * before, only the time is not kept. Checked once per application instance.
+     */
+    public static function readTimeAvailable(): bool
+    {
+        $manager = app(ChatManager::class);
+
+        if ($manager->readTimeColumn === null) {
+            $model = self::messageModel();
+            $manager->readTimeColumn = (new $model)->getConnection()->getSchemaBuilder()
+                ->hasColumn(self::table('participants'), 'last_read_at');
+        }
+
+        return $manager->readTimeColumn;
+    }
+
     public static function readReceipts(): bool
     {
         return (bool) config('filament-chat.features.read_receipts', true);
