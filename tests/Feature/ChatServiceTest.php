@@ -100,6 +100,19 @@ class ChatServiceTest extends TestCase
         Event::assertDispatched(ChatUpdated::class, fn (ChatUpdated $event): bool => in_array('me@example.com', $event->recipients, true));
     }
 
+    public function test_an_outside_change_reaches_every_active_member_without_a_message(): void
+    {
+        $me = $this->user();
+        $conversation = $this->direct($me, $this->user());
+
+        Event::fake([ChatUpdated::class]);
+        app(ChatService::class)->changed($conversation);
+
+        Event::assertDispatched(ChatUpdated::class, fn (ChatUpdated $event): bool => count($event->recipients) === 2
+            && $event->conversation === $conversation->ulid
+            && $event->message === null);
+    }
+
     public function test_no_event_without_realtime(): void
     {
         config(['filament-chat.realtime.enabled' => false]);

@@ -263,6 +263,15 @@ class ChatService
     }
 
     /**
+     * Something outside the chat changed what a conversation shows (an extension's data on a message, e.g. marks on a
+     * picture): its active members re-render the feed. Nothing is stored and nobody is notified.
+     */
+    public function changed(Conversation $conversation): void
+    {
+        $this->broadcast($conversation, $this->conversations->activeMemberKeys($conversation));
+    }
+
+    /**
      * The socket is not the source of truth: if it is down the message is
      * already stored and the badge catches up by polling — so a failure is
      * only reported.
