@@ -2,7 +2,7 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
-## Unreleased (1.5.0)
+## v1.5.0 - 2026-10-13
 
 - Fixed: messages listed or found for a conversation carry it (`setRelation`) — an extension reading `$message->conversation` in a hook no longer lazy-loads per message (a crash under `Model::preventLazyLoading()`).
 - New: `ChatService::changed($conversation)` — an extension tells the members to re-render a conversation (marks on a picture…); no message, no bell.
