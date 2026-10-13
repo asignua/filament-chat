@@ -96,6 +96,7 @@ class MessageRepository
             ->orderByDesc('id')
             ->limit($limit)
             ->get()
+            ->each(fn (Message $message): Message => $message->setRelation('conversation', $conversation))
             ->reverse()
             ->values();
     }
@@ -185,7 +186,8 @@ class MessageRepository
 
     public function findInConversation(Conversation $conversation, string $ulid, ?Closure $scope = null): ?Message
     {
-        return $this->query($conversation, $scope)->where('ulid', $ulid)->with('author')->first();
+        return $this->query($conversation, $scope)->where('ulid', $ulid)->with('author')->first()
+            ?->setRelation('conversation', $conversation);
     }
 
     /**
