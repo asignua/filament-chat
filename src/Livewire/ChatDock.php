@@ -40,6 +40,12 @@ class ChatDock extends Component
     /** Browser event: show / hide the slide-over (the top-bar button). */
     public const string EVENT_TOGGLE = 'filament-chat-toggle';
 
+    /**
+     * Browser event: a new message from someone else — `{conversation, message, open}`; `open` — that conversation is on the
+     * screen (the browser alone knows whether the tab is visible). Without a socket: the counter grew, all three empty.
+     */
+    public const string EVENT_INCOMING = 'filament-chat-incoming';
+
     /** localStorage: the slide-over is pinned (split screen). */
     public const string STORAGE_PINNED = 'filament-chat.pinned';
 
@@ -59,6 +65,10 @@ class ChatDock extends Component
     public bool $quiet = false;
 
     public int $unread = 0;
+
+    /** The counter has been shown once: a later growth is news (polling without a socket). */
+    #[Locked]
+    public bool $counted = false;
 
     /** ulid of the conversation open in the slide-over (decides about toasts). */
     public ?string $conversation = null;
@@ -111,15 +121,18 @@ class ChatDock extends Component
             return;
         }
 
-        if ($this->quiet || !ChatConfig::toasts()) {
-            return;
-        }
         $ulid = $payload['conversation'] ?? null;
         $messageUlid = $payload['message'] ?? null;
 
-        if ($user === null || !is_string($ulid) || !is_string($messageUlid)
-            || ($payload['author'] ?? null) === ChatUsers::broadcastKey($user)
-            || ($this->panelOpen && $this->conversation === $ulid)) {
+        if ($user === null || !is_string($ulid) || !is_string($messageUlid) || ($payload['author'] ?? null) === ChatUsers::broadcastKey($user)) {
+            return;
+        }
+
+        // On the screen: in the open slide-over, or in the Chat page's own window (the counter is quiet there).
+        $onScreen = $this->conversation === $ulid && ($this->panelOpen || $this->quiet);
+        $this->dispatch(self::EVENT_INCOMING, conversation: $ulid, message: $messageUlid, open: $onScreen);
+
+        if ($this->quiet || !ChatConfig::toasts() || $onScreen) {
             return;
         }
 
@@ -151,7 +164,15 @@ class ChatDock extends Component
     public function render(): View
     {
         $user = ChatUsers::current();
+        $previous = $this->unread;
         $this->unread = $user !== null ? app(ConversationRepository::class)->unreadTotalFor($user) : 0;
+
+        // Without a socket the poll is the only news: a grown counter is a new message (the socket announces its own).
+        if ($this->counted && $this->unread > $previous && !ChatConfig::realtime()) {
+            $this->dispatch(self::EVENT_INCOMING, conversation: null, message: null, open: false);
+        }
+
+        $this->counted = true;
 
         return view('filament-chat::livewire.chat-dock', [
             'polling' => ChatConfig::badgePolling(),
