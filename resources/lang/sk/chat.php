@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'j. n.',
     'format_date' => 'j. n. Y',
+    'online' => 'Online',
+    'last_seen' => 'Naposledy videný :time',
+    'online_count' => ':count online',
 ];

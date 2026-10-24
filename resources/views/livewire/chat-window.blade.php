@@ -38,7 +38,11 @@
         'fchat fchat-scope',
         'fchat-framed' => !$compact,
     ])
-    @if (!$realtime && $current) wire:poll.{{ $polling }}s="poll" @endif
+    @if (!$realtime && $current)
+        wire:poll.{{ $polling }}s="poll"
+    @elseif ($presenceOn)
+        wire:poll.{{ $badgePolling }}s="heartbeat"
+    @endif
     {{-- A tab in the background marks nothing as read (the slide-over's own open/closed state is a separate flag). --}}
     x-data
     x-init="if (document.hidden) $wire.setDocumentHidden(true)"
@@ -96,13 +100,16 @@
                             @php
                                 $counterpartAvatar = ChatUsers::avatar($counterpart);
                             @endphp
-                            @if ($counterpartAvatar)
-                                <x-filament::avatar :src="$counterpartAvatar" :alt="ChatUsers::name($counterpart)" size="md" class="fi-user-avatar shrink-0" data-fchat-list-avatar />
-                            @else
-                                <span data-fchat-list-avatar class="fchat-group-avatar fi-color-{{ $color }} flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
-                                    {{ mb_strtoupper(mb_substr(ChatUsers::name($counterpart), 0, 1)) }}
-                                </span>
-                            @endif
+                            <span class="relative inline-flex shrink-0">
+                                @if ($counterpartAvatar)
+                                    <x-filament::avatar :src="$counterpartAvatar" :alt="ChatUsers::name($counterpart)" size="md" class="fi-user-avatar shrink-0" data-fchat-list-avatar />
+                                @else
+                                    <span data-fchat-list-avatar class="fchat-group-avatar fi-color-{{ $color }} flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+                                        {{ mb_strtoupper(mb_substr(ChatUsers::name($counterpart), 0, 1)) }}
+                                    </span>
+                                @endif
+                                @include('filament-chat::livewire.presence-dot', ['status' => $presence[$counterpart->getKey()] ?? null])
+                            </span>
                         @else
                             <span class="fchat-group-avatar fi-color-{{ $color }} flex size-8 shrink-0 items-center justify-center rounded-full">
                                 <x-filament::icon icon="heroicon-m-user-group" class="size-4" />
@@ -196,6 +203,20 @@
                 />
                 <div class="min-w-0 flex-1">
                     <div class="truncate font-semibold">{{ $current->titleFor($me) }}</div>
+                    @if (!$current->isGroup())
+                        @php
+                            $peer = $current->counterpartFor($me);
+                            $peerStatus = $peer !== null ? ($presence[$peer->getKey()] ?? null) : null;
+                        @endphp
+                        @if ($peerStatus?->label())
+                            <div data-fchat-presence class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                @if ($peerStatus->online)
+                                    <span aria-hidden="true" class="size-2 shrink-0 rounded-full bg-success-500"></span>
+                                @endif
+                                <span class="truncate">{{ $peerStatus->label() }}</span>
+                            </div>
+                        @endif
+                    @endif
                     @if ($current->isGroup())
                         <div class="flex items-center gap-1.5">
                             @if ($avatarsOn)
@@ -209,6 +230,9 @@
                             @endif
                             <div class="truncate text-xs text-gray-500 dark:text-gray-400">
                                 {{ $members->map(fn ($u) => ChatUsers::name($u))->join(', ') }}
+                                @if ($presenceOn && ($onlineCount = collect($presence)->where('online', true)->count()) > 0)
+                                    <span data-fchat-online-count>· {{ __('filament-chat::chat.online_count', ['count' => $onlineCount]) }}</span>
+                                @endif
                             </div>
                         </div>
                     @endif

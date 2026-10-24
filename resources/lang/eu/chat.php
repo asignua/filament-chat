@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'm-d',
     'format_date' => 'Y-m-d',
+    'online' => 'Linean',
+    'last_seen' => 'Azkenekoz ikusia :time',
+    'online_count' => ':count linean',
 ];

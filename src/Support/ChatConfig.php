@@ -179,6 +179,49 @@ final class ChatConfig
         return $manager->readTimeColumn;
     }
 
+    // --- Presence ---------------------------------------------------------------
+
+    public static function presence(): bool
+    {
+        return (bool) config('filament-chat.presence.enabled', true);
+    }
+
+    /**
+     * The presences migration has been run — checked once per application instance.
+     */
+    public static function presenceAvailable(): bool
+    {
+        $manager = app(ChatManager::class);
+
+        if ($manager->presenceTable === null) {
+            $model = self::participantModel();
+            $manager->presenceTable = (new $model)->getConnection()->getSchemaBuilder()->hasTable(self::presenceTable());
+        }
+
+        return $manager->presenceTable;
+    }
+
+    public static function presenceTable(): string
+    {
+        return (string) config('filament-chat.tables.presences', 'chat_presences');
+    }
+
+    /**
+     * Seconds after the last sign of life a person still counts as online.
+     */
+    public static function presenceOnlineSeconds(): int
+    {
+        return max(1, (int) config('filament-chat.presence.online_seconds', 90));
+    }
+
+    /**
+     * At most one write per person per this many seconds.
+     */
+    public static function presenceHeartbeat(): int
+    {
+        return max(1, (int) config('filament-chat.presence.heartbeat_seconds', 30));
+    }
+
     public static function readReceipts(): bool
     {
         return (bool) config('filament-chat.features.read_receipts', true);

@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'j M',
     'format_date' => 'j F Y',
+    'online' => 'Në linjë',
+    'last_seen' => 'Parë së fundmi :time',
+    'online_count' => ':count në linjë',
 ];

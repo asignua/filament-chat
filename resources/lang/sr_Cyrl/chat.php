@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'd.m.',
     'format_date' => 'd.m.Y.',
+    'online' => 'На мрежи',
+    'last_seen' => 'Последњи пут виђен :time',
+    'online_count' => ':count на мрежи',
 ];

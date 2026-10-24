@@ -177,6 +177,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Presence
+    |--------------------------------------------------------------------------
+    |
+    | A green dot on the avatar of whoever is online, and "Online" / "Last seen
+    | 5 minutes ago" in a direct conversation. Works the same with real-time and
+    | with polling: what the chat already refreshes on a timer stamps the
+    | person's `last_seen_at` (table `tables.presences`), at most once per
+    | `heartbeat_seconds` — the throttle is in the cache, a poll costs no query.
+    |
+    | enabled           — off: nothing is shown or recorded.
+    | online_seconds    — seen within this many seconds = online. Keep it above
+    |                     `polling.badge`, the slowest heartbeat.
+    | heartbeat_seconds — minimum gap between two writes for one person.
+    |
+    | Hiding someone from someone: ->hidePresenceUsing(fn ($person, $viewer) => …)
+    | on the plugin (a closure — not cacheable config).
+    |
+    */
+
+    'presence' => [
+        'enabled' => true,
+        'online_seconds' => 90,
+        'heartbeat_seconds' => 30,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Notifications
     |--------------------------------------------------------------------------
     |
@@ -244,6 +271,7 @@ return [
         'participants' => 'chat_participants',
         'messages' => 'chat_messages',
         'reactions' => 'chat_message_reactions',
+        'presences' => 'chat_presences',
     ],
 
 ];

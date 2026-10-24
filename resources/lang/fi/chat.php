@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'j.n.',
     'format_date' => 'j.n.Y',
+    'online' => 'Paikalla',
+    'last_seen' => 'Viimeksi nähty :time',
+    'online_count' => ':count paikalla',
 ];

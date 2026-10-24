@@ -29,6 +29,9 @@ final class ChatManager
     /** @var (Closure(Model): ?string)|null */
     public ?Closure $avatarUsing = null;
 
+    /** @var (Closure(Model, ?Model): bool)|null */
+    public ?Closure $hidePresenceUsing = null;
+
     public ?FilamentChatPlugin $plugin = null;
 
     public ?string $panelId = null;
@@ -41,6 +44,9 @@ final class ChatManager
 
     /** Whether the participants table has `last_read_at` (see ChatConfig::readTimeAvailable()); null — not yet. */
     public ?bool $readTimeColumn = null;
+
+    /** Whether the presences table exists (see ChatConfig::presenceAvailable()); null — not yet. */
+    public ?bool $presenceTable = null;
 
     public readonly ChatHooks $hooks;
 

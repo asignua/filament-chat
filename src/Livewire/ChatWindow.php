@@ -20,6 +20,7 @@ use Asignua\FilamentChat\Services\ChatService;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\ChatUsers;
+use Asignua\FilamentChat\Support\Presence;
 use Asignua\FilamentChat\Support\ReadStatus;
 use Asignua\FilamentChat\Support\Realtime;
 use Asignua\FilamentChat\Support\References\RecordUrlResolver;
@@ -370,6 +371,12 @@ class ChatWindow extends Component implements HasActions, HasSchemas
             $this->markRead($current);
         }
     }
+
+    /**
+     * The timer of the window while it is not polled otherwise (real-time, no conversation open):
+     * rendering stamps the person's presence and refreshes everybody's dots.
+     */
+    public function heartbeat(): void {}
 
     public function send(): void
     {
@@ -844,6 +851,33 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         }
 
         $tombstones = $this->tombstones($messages, $conversations, $previews);
+
+        // Rendering is the heartbeat (throttled in the cache); then the dots of whoever is on screen:
+        // the other side of every direct conversation in the list and everybody in the open one.
+        Presence::touch($user);
+        $presence = [];
+
+        if (Presence::enabled()) {
+            $people = [];
+
+            if ($user !== null) {
+                foreach ($conversations as $item) {
+                    $counterpart = $item->counterpartFor($user);
+
+                    if ($counterpart !== null) {
+                        $people[] = $counterpart;
+                    }
+                }
+            }
+
+            foreach ($current->participants ?? [] as $participant) {
+                if ($participant->isActive() && $participant->user !== null) {
+                    $people[] = $participant->user;
+                }
+            }
+
+            $presence = Presence::statuses($people, $user);
+        }
         $names = [];
 
         foreach ($current->participants ?? [] as $participant) {
@@ -907,6 +941,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
                     ->all())
                 : [],
             'avatars' => $avatars,
+            'presence' => $presence,
+            'presenceOn' => Presence::enabled(),
+            'badgePolling' => ChatConfig::badgePolling(),
             'avatarsOn' => ChatConfig::avatars(),
             // Explicit flags: an action rendered already in mount() is shown disabled
             // by Filament rather than hidden, so the group buttons render only on these.

@@ -10,6 +10,7 @@ use Asignua\FilamentChat\Repositories\ConversationRepository;
 use Asignua\FilamentChat\Repositories\MessageRepository;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatUsers;
+use Asignua\FilamentChat\Support\Presence;
 use Asignua\FilamentChat\Support\Realtime;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -164,6 +165,8 @@ class ChatDock extends Component
     public function render(): View
     {
         $user = ChatUsers::current();
+        // The badge poll is the heartbeat of presence on every page of the panel.
+        Presence::touch($user);
         $previous = $this->unread;
         $this->unread = $user !== null ? app(ConversationRepository::class)->unreadTotalFor($user) : 0;
 

@@ -42,6 +42,7 @@ Works with or without a websocket server: turn real-time on with one environment
 | Chat page, top-bar slide-over that can be pinned next to any page, unread counters and bell | ✓ | ✓ |
 | Record references: drop a link to a panel record and it becomes a card | ✓ | ✓ |
 | Real time over Reverb / Pusher / Ably, or polling | ✓ | ✓ |
+| Presence: green "online" dot and "last seen", real time or polling | ✓ | ✓ |
 | RTL, dark mode, 47 languages | ✓ | ✓ |
 | File attachments: drag & drop, paperclip, **paste a screenshot** from the clipboard | | ✓ |
 | Image lightbox, one-click file download | | ✓ |
@@ -82,6 +83,7 @@ Dark mode:
 | **Read receipts** | ✓ sent, ✓✓ read — in a group, read by every active member (the hint lists who has not). |
 | **Replies** | ↩ on a message quotes it above your answer; a click on the quote jumps to the original, loading earlier messages if needed. |
 | **Avatars** | Next to the last message of a series in groups, in the @ list and the member line; direct conversations in the list always show the person. From Filament's avatar provider or `->avatarUsing()`; initials when there is no picture. |
+| **Presence** | A green dot on the avatar of whoever is online (conversation list), "Online" / "Last seen 5 minutes ago" under the name in a direct conversation, "N online" in a group. Works with real-time and with polling: a throttled heartbeat (at most one write per person per 30 s, the throttle lives in the cache). Online = seen within `presence.online_seconds` (90). Hide someone with `->hidePresenceUsing(fn ($person, $viewer) => …)`; off with `->presence(false)`. Needs the `create_filament_chat_presences_table` migration (table `chat_presences`). |
 | **New messages** | Opening a conversation scrolls to a line where the unread part starts (up to five pages back, otherwise it opens at the bottom); sending your own message clears the line. |
 | **Record references** | Attach a record with a picker, by dropping a link to its page, or "Attach current" in the slide-over. |
 | **Where** | A full **Chat** page and a **top-bar button** with a slide-over; on wide screens the slide-over can be **pinned** as a split screen that stays open across pages. |
@@ -419,6 +421,17 @@ php artisan vendor:publish --tag=filament-chat-translations
 
 Translated the chat into your language? A pull request with `resources/lang/{locale}/chat.php` is
 very welcome.
+
+## Upgrading to 1.7
+
+1.7 adds presence in a fourth migration, `create_filament_chat_presences_table` (table `tables.presences`, default `chat_presences`; one row per person: `user_id`, `last_seen_at`):
+
+```bash
+php artisan vendor:publish --tag=filament-chat-migrations   # the migrations you already have are kept
+php artisan migrate
+```
+
+Without it the chat keeps working; there are just no dots. Add `'presence' => ['enabled' => true, 'online_seconds' => 90, 'heartbeat_seconds' => 30]` and `'presences' => 'chat_presences'` under `tables` to a published config if you want to change them (the defaults apply without). Keep `online_seconds` above `polling.badge`, the slowest heartbeat.
 
 ## Upgrading to 1.5
 

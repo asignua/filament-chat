@@ -48,6 +48,9 @@ class FilamentChatPlugin implements Plugin
     /** @var (Closure(Model): ?string)|null */
     protected ?Closure $avatarUrl = null;
 
+    /** @var (Closure(Model, ?Model): bool)|null */
+    protected ?Closure $hidePresence = null;
+
     /** @var (Closure(): list<AllResources|ReferenceType>)|list<AllResources|ReferenceType> */
     protected array|Closure $references = [];
 
@@ -152,6 +155,35 @@ class FilamentChatPlugin implements Plugin
     public function replies(bool $condition = true): static
     {
         return $this->set('features.replies', $condition);
+    }
+
+    /**
+     * "Online" dots and "last seen" (on by default; off — nothing is shown or recorded).
+     */
+    public function presence(bool $condition = true): static
+    {
+        return $this->set('presence.enabled', $condition);
+    }
+
+    /**
+     * Seconds after the last heartbeat a person still counts as online.
+     */
+    public function presenceOnlineSeconds(int $seconds): static
+    {
+        return $this->set('presence.online_seconds', $seconds);
+    }
+
+    /**
+     * Privacy: hide a person's presence from a viewer. Gets the person shown and the viewer;
+     * true — no dot and no "last seen" for them.
+     *
+     * @param Closure(Model, ?Model): bool $hide
+     */
+    public function hidePresenceUsing(Closure $hide): static
+    {
+        $this->hidePresence = $hide;
+
+        return $this;
     }
 
     /**
@@ -299,6 +331,7 @@ class FilamentChatPlugin implements Plugin
         $manager->modifyUsersQueryUsing = $this->users;
         $manager->userNameUsing = $this->userName;
         $manager->avatarUsing = $this->avatarUrl;
+        $manager->hidePresenceUsing = $this->hidePresence;
 
         foreach (value($this->references) as $type) {
             $manager->references->register($type);

@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'j M',
     'format_date' => 'j F Y',
+    'online' => 'Online',
+    'last_seen' => 'Senast sedd :time',
+    'online_count' => ':count online',
 ];

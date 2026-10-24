@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'd.m',
     'format_date' => 'd.m.Y',
+    'online' => 'У мережі',
+    'last_seen' => 'Був(-ла) у мережі :time',
+    'online_count' => 'У мережі: :count',
 ];

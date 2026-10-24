@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'j. n.',
     'format_date' => 'j. n. Y',
+    'online' => 'Na spletu',
+    'last_seen' => 'Nazadnje viden :time',
+    'online_count' => ':count na spletu',
 ];

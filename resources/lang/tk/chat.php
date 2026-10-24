@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'd.m',
     'format_date' => 'd.m.Y',
+    'online' => 'Onlaýn',
+    'last_seen' => 'Soňky gezek :time görüldi',
+    'online_count' => 'Onlaýn: :count',
 ];

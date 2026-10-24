@@ -56,6 +56,7 @@ Every config key has a plugin setter; the plugin wins. Closures exist only on th
 | avatars / replies | `features.avatars` / `features.replies` | `->avatars(false)` / `->replies(false)` |
 | avatar URL (null = initials) | — (default: Filament's avatar provider) | `->avatarUsing(fn ($u): ?string => …)` |
 | groups / reactions / mentions / ✓✓ | `features.groups` / `.reactions` / `.mentions` / `.read_receipts` | `->groups(false)` … `->readReceipts(false)` |
+| presence (online dot, last seen), online window | `presence.enabled` / `.online_seconds` / `.heartbeat_seconds` | `->presence(false)`, `->presenceOnlineSeconds(120)`, `->hidePresenceUsing(fn ($person, $viewer): bool => …)` |
 | editing, time window | `features.editing.enabled` / `.window` (minutes) | `->editing(true, 15)` |
 | page size, max length | `messages.page_size` / `.max_length` | — |
 | references on/off, visibility | `references.enabled` / `.authorize` | `->authorizeReferences('resource')` |

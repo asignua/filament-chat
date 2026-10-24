@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'd.m',
     'format_date' => 'd.m.Y',
+    'online' => 'Дар хат',
+    'last_seen' => 'Бори охир :time дида шуд',
+    'online_count' => 'Дар хат: :count',
 ];

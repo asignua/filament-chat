@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'j M',
     'format_date' => 'j F Y',
+    'online' => 'Συνδεδεμένος',
+    'last_seen' => 'Τελευταία εμφάνιση :time',
+    'online_count' => ':count συνδεδεμένοι',
 ];

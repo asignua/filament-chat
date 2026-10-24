@@ -86,6 +86,9 @@ abstract class TestCase extends Orchestra
 
         $readTime = include __DIR__.'/../database/migrations/add_last_read_at_to_filament_chat_participants.php.stub';
         $readTime->up();
+
+        $presence = include __DIR__.'/../database/migrations/create_filament_chat_presences_table.php.stub';
+        $presence->up();
     }
 
     /**

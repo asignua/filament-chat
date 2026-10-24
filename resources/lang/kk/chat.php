@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'd.m',
     'format_date' => 'd.m.Y',
+    'online' => 'Желіде',
+    'last_seen' => 'Соңғы рет :time көрінді',
+    'online_count' => 'Желіде: :count',
 ];

@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'd.m',
     'format_date' => 'd.m.Y',
+    'online' => 'Onlayn',
+    'last_seen' => 'Son görülmə: :time',
+    'online_count' => ':count onlayn',
 ];

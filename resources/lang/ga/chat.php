@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'j M',
     'format_date' => 'j F Y',
+    'online' => 'Ar líne',
+    'last_seen' => 'Le feiceáil go deireanach :time',
+    'online_count' => ':count ar líne',
 ];

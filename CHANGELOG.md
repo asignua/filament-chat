@@ -2,6 +2,13 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## Unreleased
+
+- New: presence. A green dot on avatars of people who are online (conversation list), "Online" / "Last seen 5 minutes ago" under the name of a direct conversation, "N online" in a group header. Works with real-time and polling alike: the dock's badge poll and the window render stamp `last_seen_at`, throttled in the cache (`presence.heartbeat_seconds`, 30). Online = seen within `presence.online_seconds` (90).
+- New: config `presence.*` and `tables.presences`; plugin `->presence()`, `->presenceOnlineSeconds()` and `->hidePresenceUsing(fn ($person, $viewer) => …)` (privacy hook).
+- New: fourth migration `create_filament_chat_presences_table` (`chat_presences`: `user_id` primary key, `last_seen_at`). Without it the chat works as before, without dots. Re-run `vendor:publish --tag=filament-chat-migrations` and `migrate`.
+- New: translations `online`, `last_seen`, `online_count` in all 47 languages. The window polls every `polling.badge` seconds for the heartbeat when it is not polled otherwise.
+
 ## v1.6.0 - 2026-10-25
 
 - Added: right-to-left support (Persian…). With Filament's `dir="rtl"` the dock slides in from the other side, own and others' bubbles, avatars, timestamps and badges mirror, and the direction-bound icons (back, send, reply) flip. Message bodies, quotes, previews and the composer carry `dir="auto"`, so a Latin message in an RTL panel (and the reverse) renders right. LTR output is unchanged apart from that attribute. The built CSS gains two `rtl:` utilities.

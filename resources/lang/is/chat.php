@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'j. M',
     'format_date' => 'j. F Y',
+    'online' => 'Á netinu',
+    'last_seen' => 'Sást síðast :time',
+    'online_count' => ':count á netinu',
 ];

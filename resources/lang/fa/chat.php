@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'M j',
     'format_date' => 'j F Y',
+    'online' => 'آنلاین',
+    'last_seen' => 'آخرین بازدید :time',
+    'online_count' => '‏:count آنلاین',
 ];

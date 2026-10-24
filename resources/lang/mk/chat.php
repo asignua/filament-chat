@@ -94,4 +94,7 @@ return [
     'format_time' => 'H:i',
     'format_day' => 'j M',
     'format_date' => 'j F Y',
+    'online' => 'На мрежа',
+    'last_seen' => 'Последно виден :time',
+    'online_count' => 'На мрежа: :count',
 ];
