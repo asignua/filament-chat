@@ -67,7 +67,7 @@ Dark mode:
 | **Where** | A full **Chat** page and a **top-bar button** with a slide-over; on wide screens the slide-over can be **pinned** as a split screen that stays open across pages. |
 | **Unread** | Counters in the navigation, on the button, in the browser tab title and on the favicon; a bell notification on the first unread message of a conversation and on every mention; a "Reply" toast. |
 | **Privacy** | A conversation is visible to its members only — admins included. Messages are never deleted. |
-| **Languages** | English, Ukrainian, German, Spanish, French, Italian, Dutch, Polish, Brazilian Portuguese, Turkish; [add yours](#translations). |
+| **Languages** | 47: English, Ukrainian, German, Spanish, French, Italian, Dutch, Polish, Brazilian Portuguese, Portuguese, Turkish, Persian and most European and ex-USSR languages ([full list](#translations)); [add yours](#translations). |
 
 Every feature can be switched off.
 
@@ -362,8 +362,9 @@ subscribes. An existing `window.Echo` is never replaced.
 
 ## Translations
 
-The chat follows your app's locale and ships with English, Ukrainian, German, Spanish, French,
-Italian, Dutch, Polish, Brazilian Portuguese and Turkish. Every string lives in one file per language,
+The chat follows your app's locale and ships with English, Ukrainian, German, Spanish, French, Italian, Dutch, Polish, Brazilian Portuguese, Turkish, Persian and — from this release — Albanian, Armenian, Azerbaijani, Basque, Belarusian, Bosnian, Bulgarian, Catalan, Croatian, Czech, Danish, Estonian, Finnish, Georgian, Greek, Hungarian, Icelandic, Irish, Kazakh, Kyrgyz, Latvian, Lithuanian, Luxembourgish, Macedonian, Maltese, Norwegian (Bokmål), Portuguese, Romanian, Serbian (Latin and Cyrillic), Slovak, Slovenian, Swedish, Tajik, Turkmen and Uzbek. The translations were
+prepared with machine assistance and have not all been reviewed by native speakers — corrections are welcome.
+Every string lives in one file per language,
 e.g. [`resources/lang/en/chat.php`](https://github.com/asignua/filament-chat/blob/main/resources/lang/en/chat.php);
 dates use the same locale (month names come from Carbon).
 
