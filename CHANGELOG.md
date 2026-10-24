@@ -2,6 +2,10 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## Unreleased
+
+- Fixed (tests only): `NotificationEscapingTest` read the toast the way Filament 5.9 stored it; since Filament 5.10 a sent notification waits in `NotificationMailbox` until the response flushes it. The test now flushes the mailbox and pulls from it. The plugin code is unchanged: the toast is still sent with `Notification::send()`, and the title and body are still escaped.
+
 ## v1.5.0 - 2026-10-13
 
 - Fixed: messages listed or found for a conversation carry it (`setRelation`) — an extension reading `$message->conversation` in a hook no longer lazy-loads per message (a crash under `Model::preventLazyLoading()`).

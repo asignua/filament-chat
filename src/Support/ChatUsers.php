@@ -45,7 +45,8 @@ final class ChatUsers
         }
 
         if ($user instanceof HasName) {
-            return $user->getFilamentName();
+            // Filament reduces an `Htmlable` name (allowed since 5.10) to plain text.
+            return Filament::getUserName($user);
         }
 
         $name = $user->getAttribute('name');
