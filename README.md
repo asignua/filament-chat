@@ -17,6 +17,7 @@ Works with or without a websocket server: turn real-time on with one environment
 (Laravel Reverb, Pusher, Ably), or let the chat poll.
 
 - [Screenshots](#screenshots)
+- [Free or Pro?](#free-or-pro) — what the paid Chat Pro adds
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -32,6 +33,25 @@ Works with or without a websocket server: turn real-time on with one environment
 - [Troubleshooting](#troubleshooting)
 - [AI agents](#ai-agents)
 - [Testing](#testing)
+
+## Free or Pro?
+
+| | [Chat](https://github.com/asignua/filament-chat) (free, MIT) | [Chat Pro](https://github.com/asignua/filament-chat-pro-docs) (€69 / €169) |
+| --- | :---: | :---: |
+| Direct messages and groups, @mentions, editing, reactions, replies, read receipts | ✓ | ✓ |
+| Chat page, top-bar slide-over that can be pinned next to any page, unread counters and bell | ✓ | ✓ |
+| Record references: drop a link to a panel record and it becomes a card | ✓ | ✓ |
+| Real time over Reverb / Pusher / Ably, or polling | ✓ | ✓ |
+| RTL, dark mode, 47 languages | ✓ | ✓ |
+| File attachments: drag & drop, paperclip, **paste a screenshot** from the clipboard | | ✓ |
+| Image lightbox, one-click file download | | ✓ |
+| Delete your own messages | | ✓ |
+| "Olga is typing…" indicator | | ✓ |
+| Search every message across your conversations | | ✓ |
+| New-message sound (built-in chime or your file) | | ✓ |
+| Email digest of unread messages | | ✓ |
+
+Chat Pro is an add-on: it requires the free package and builds on its extension seams, so conversations and settings carry over.
 
 ## Screenshots
 
