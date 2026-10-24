@@ -1,0 +1,18 @@
+{
+    "shots": [],
+    "covers": [
+        {
+            "html": "../../scripts/art/cover.html",
+            "out": "cover.jpg",
+            "query": {
+                "eyebrow": "Plugin for Filament",
+                "title": "Team chat inside your panel",
+                "lead": "Direct messages and groups, @mentions, replies, reactions and read receipts — with links to your panel's records. Right-to-left ready, in 47 languages.",
+                "chips": "Real-time or polling|Pinnable slide-over|Record references|RTL · 47 languages",
+                "shot": "../../filament-chat/art/chat-page.jpg",
+                "crop": "703,325,2120,1420",
+                "brand": "asignua"
+            }
+        }
+    ]
+}
