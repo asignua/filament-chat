@@ -90,11 +90,11 @@
             x-cloak
             class="fchat-dock fixed inset-y-0 end-0 z-40 flex w-full max-w-md flex-col bg-white shadow-2xl ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
             x-transition:enter="transition ease-out duration-200"
-            x-transition:enter-start="translate-x-full"
+            x-transition:enter-start="translate-x-full rtl:-translate-x-full"
             x-transition:enter-end="translate-x-0"
             x-transition:leave="transition ease-in duration-150"
             x-transition:leave-start="translate-x-0"
-            x-transition:leave-end="translate-x-full"
+            x-transition:leave-end="translate-x-full rtl:-translate-x-full"
         >
             <div class="flex items-center gap-2 border-b border-gray-200 px-3 py-2 dark:border-white/10">
                 <x-filament::icon :icon="Chat::icon()" class="size-5 text-gray-400" />

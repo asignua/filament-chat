@@ -67,6 +67,7 @@ Dark mode:
 | **Where** | A full **Chat** page and a **top-bar button** with a slide-over; on wide screens the slide-over can be **pinned** as a split screen that stays open across pages. |
 | **Unread** | Counters in the navigation, on the button, in the browser tab title and on the favicon; a bell notification on the first unread message of a conversation and on every mention; a "Reply" toast. |
 | **Privacy** | A conversation is visible to its members only — admins included. Messages are never deleted. |
+| **RTL** | Right-to-left locales (Persian…) are supported: the layout mirrors with Filament's `dir="rtl"`, message text picks its own direction. |
 | **Languages** | 47: English, Ukrainian, German, Spanish, French, Italian, Dutch, Polish, Brazilian Portuguese, Portuguese, Turkish, Persian and most European and ex-USSR languages ([full list](#translations)); [add yours](#translations). |
 
 Every feature can be switched off.

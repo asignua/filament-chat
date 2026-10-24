@@ -120,7 +120,7 @@
                                 @endif
                             </span>
                             <span class="flex items-center justify-between gap-2">
-                                <span class="truncate text-xs text-gray-500 dark:text-gray-400">
+                                <span dir="auto" class="truncate text-xs text-gray-500 dark:text-gray-400">
                                     @if ($last)
                                         @if ($item->isGroup() && $last->author)
                                             {{ $last->author->is($me) ? __('filament-chat::chat.you') : ChatUsers::name($last->author) }}:
@@ -189,6 +189,7 @@
                 <x-filament::icon-button
                     icon="heroicon-m-arrow-left"
                     color="gray"
+                    class="rtl:-scale-x-100"
                     wire:click="back"
                     :label="__('filament-chat::chat.back')"
                     @class(['md:hidden' => !$compact])
@@ -334,17 +335,17 @@
                                             'fi-color-'.$color.' fchat-quote border-current bg-white/60 dark:bg-white/5' => !$mine,
                                         ])
                                     >
-                                        <span @class(['block truncate font-semibold', 'fchat-quote-author' => !$mine])>
+                                        <span dir="auto" @class(['block truncate font-semibold', 'fchat-quote-author' => !$mine])>
                                             {{ $original?->author ? ChatUsers::name($original->author) : __('filament-chat::chat.unknown_user') }}
                                         </span>
-                                        <span class="block truncate opacity-80">{{ $originalGone ? __('filament-chat::chat.message_deleted') : ($original?->preview(100) ?? __('filament-chat::chat.reply_unknown')) }}</span>
+                                        <span dir="auto" class="block truncate opacity-80">{{ $originalGone ? __('filament-chat::chat.message_deleted') : ($original?->preview(100) ?? __('filament-chat::chat.reply_unknown')) }}</span>
                                     </button>
                                 @endif
                                 @if ($gone)
                                     <div data-fchat-deleted class="italic opacity-80">{{ __('filament-chat::chat.message_deleted') }}</div>
                                 @else
                                     @if (trim($message->body) !== '')
-                                        <div class="wrap-anywhere break-words">{{ ChatText::toHtml($message->body, $mentionsOn ? array_intersect_key($names, array_flip($message->mentionIds())) : [], $me?->getKey()) }}</div>
+                                        <div dir="auto" class="wrap-anywhere break-words">{{ ChatText::toHtml($message->body, $mentionsOn ? array_intersect_key($names, array_flip($message->mentionIds())) : [], $me?->getKey()) }}</div>
                                     @endif
                                     @if ($reference)
                                         @include('filament-chat::livewire.reference', ['reference' => $reference, 'mine' => $mine])
@@ -406,7 +407,7 @@
                                         title="{{ __('filament-chat::chat.reply') }}"
                                         class="rounded-full p-1 text-gray-400 opacity-0 transition group-hover/msg:opacity-100 hover:text-gray-600 focus:opacity-100 dark:hover:text-gray-200 [@media(hover:none)]:opacity-60"
                                     >
-                                        <x-filament::icon icon="heroicon-m-arrow-uturn-left" class="size-4" />
+                                        <x-filament::icon icon="heroicon-m-arrow-uturn-left" class="size-4 rtl:-scale-x-100" />
                                     </button>
                                 @endif
                                 @if (in_array($message->id, $editable, true))
@@ -465,13 +466,13 @@
                     @endif
                     @if ($replying && !$editing)
                         <div wire:key="fchat-replying" class="flex items-center gap-2 rounded-lg border-s-2 border-primary-500 bg-gray-50 px-2 py-1 text-xs dark:bg-white/5">
-                            <x-filament::icon icon="heroicon-m-arrow-uturn-left" class="size-4 shrink-0 text-primary-600 dark:text-primary-400" />
+                            <x-filament::icon icon="heroicon-m-arrow-uturn-left" class="size-4 shrink-0 rtl:-scale-x-100 text-primary-600 dark:text-primary-400" />
                             <div class="min-w-0 flex-1">
                                 <div class="text-primary-600 dark:text-primary-400">
                                     {{ __('filament-chat::chat.replying_to') }}
                                     <span class="font-semibold">{{ $replying->author ? ChatUsers::name($replying->author) : __('filament-chat::chat.unknown_user') }}</span>
                                 </div>
-                                <div class="truncate text-gray-500 dark:text-gray-400">{{ $replying->preview(100) }}</div>
+                                <div dir="auto" class="truncate text-gray-500 dark:text-gray-400">{{ $replying->preview(100) }}</div>
                             </div>
                             <x-filament::icon-button icon="heroicon-m-x-mark" color="gray" size="sm" wire:click="cancelReply" :label="__('filament-chat::chat.cancel_reply')" />
                         </div>
@@ -624,6 +625,7 @@
                                 x-on:paste="$dispatch('{{ ChatWindow::EVENT_PASTE }}', { event: $event })"
                                 x-on:click="scan()"
                                 x-on:blur="open = false"
+                                dir="auto"
                                 placeholder="{{ __('filament-chat::chat.placeholder') }}"
                                 title="{{ __('filament-chat::chat.enter_hint') }}"
                                 class="block max-h-40 w-full resize-none rounded-lg border-0 bg-gray-50 px-3 py-2 text-sm text-gray-950 ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20"
@@ -634,6 +636,7 @@
                             type="submit"
                             icon="heroicon-m-paper-airplane"
                             size="lg"
+                            class="rtl:-scale-x-100"
                             x-on:mousedown.prevent
                             :label="$editing ? __('filament-chat::chat.save_edit') : __('filament-chat::chat.send')"
                         />

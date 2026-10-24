@@ -4,6 +4,8 @@ All notable changes to `asignua/filament-chat` are documented here.
 
 ## Unreleased
 
+- Added: right-to-left support (Persian…). With Filament's `dir="rtl"` the dock slides in from the other side, own and others' bubbles, avatars, timestamps and badges mirror, and the direction-bound icons (back, send, reply) flip. Message bodies, quotes, previews and the composer carry `dir="auto"`, so a Latin message in an RTL panel (and the reverse) renders right. LTR output is unchanged apart from that attribute. The built CSS gains two `rtl:` utilities.
+- Tests: a guard keeps physical `left`/`right` utilities out of the views.
 - Added: 36 interface languages — `bg bs ca cs da el et eu fi ga hr hu is lb lt lv mk mt nb pt ro sk sl sq sr_Latn sr_Cyrl sv` and `be kk ky tg tk uz az hy ka` (dates keep working through Carbon; day/month order follows each language's custom, numeric where month-name case would be wrong).
 - Fixed (tests only): `NotificationEscapingTest` read the toast the way Filament 5.9 stored it; since Filament 5.10 a sent notification waits in `NotificationMailbox` until the response flushes it. The test now flushes the mailbox and pulls from it. The plugin code is unchanged: the toast is still sent with `Notification::send()`, and the title and body are still escaped.
 
