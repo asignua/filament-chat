@@ -21,6 +21,7 @@ use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\ChatUsers;
 use Asignua\FilamentChat\Support\Presence;
+use Asignua\FilamentChat\Support\PresenceStatus;
 use Asignua\FilamentChat\Support\ReadStatus;
 use Asignua\FilamentChat\Support\Realtime;
 use Asignua\FilamentChat\Support\References\RecordUrlResolver;
@@ -149,6 +150,14 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
     /** A hidden window (closed slide-over) does not mark anything as read. */
     public bool $hidden = false;
+
+    /** Keys of the people whose dots are on screen, and a fingerprint of those dots (see heartbeat()). */
+    /** @var list<int|string> */
+    #[Locked]
+    public array $presenceKeys = [];
+
+    #[Locked]
+    public string $presenceSignature = '';
 
     /**
      * The same for a browser tab in the background: nobody is looking at the window.
@@ -376,7 +385,75 @@ class ChatWindow extends Component implements HasActions, HasSchemas
      * The timer of the window while it is not polled otherwise (real-time, no conversation open):
      * rendering stamps the person's presence and refreshes everybody's dots.
      */
-    public function heartbeat(): void {}
+    public function heartbeat(): void
+    {
+        $user = ChatUsers::current();
+
+        if ($this->hidden || $this->documentHidden === true || $user === null || $this->presenceKeys === [] || !Presence::enabled()) {
+            $this->skipRender();
+
+            return;
+        }
+
+        $model = ChatConfig::userModel();
+        $statuses = Presence::statuses($model::query()->whereKey($this->presenceKeys)->get(), $user, $this->current());
+
+        // The window is re-rendered (list, feed, morph) only when a dot or a "last seen" text would differ.
+        if (Presence::signature($statuses) === $this->presenceSignature) {
+            $this->skipRender();
+        }
+    }
+
+    /**
+     * Who is online among the people on screen: the other side of every direct conversation in the list
+     * and the active members of the open one — unless the viewer has left it (a group one has left is history,
+     * not a live view of its members). Remembers whom it looked at, for heartbeat().
+     *
+     * @param iterable<Conversation> $conversations
+     *
+     * @return array{0: array<int|string, PresenceStatus>, 1: int} statuses by user key; how many members of the open group are online
+     */
+    private function presenceData(iterable $conversations, ?Model $user, ?Conversation $current): array
+    {
+        if ($user === null || !Presence::enabled()) {
+            $this->presenceKeys = [];
+            $this->presenceSignature = '';
+
+            return [[], 0];
+        }
+
+        $people = [];
+
+        foreach ($conversations as $item) {
+            $counterpart = $item->counterpartFor($user);
+
+            if ($counterpart !== null) {
+                $people[] = $counterpart;
+            }
+        }
+
+        $members = [];
+        $left = $current !== null && $current->participants->firstWhere('user_id', $user->getKey())?->left_at !== null;
+
+        if ($current !== null && !$left) {
+            foreach ($current->participants as $participant) {
+                if ($participant->isActive() && $participant->user !== null) {
+                    $members[$participant->user_id] = $participant->user;
+                    $people[] = $participant->user;
+                }
+            }
+        }
+
+        $statuses = Presence::statuses($people, $user, $current);
+        $this->presenceKeys = array_values(array_unique(array_map(fn (Model $person) => $person->getKey(), $people)));
+        $this->presenceSignature = Presence::signature($statuses);
+
+        $online = $current !== null && $current->isGroup()
+            ? count(array_filter(array_keys($members), fn ($key): bool => isset($statuses[$key]) && $statuses[$key]->online))
+            : 0;
+
+        return [$statuses, $online];
+    }
 
     public function send(): void
     {
@@ -852,32 +929,9 @@ class ChatWindow extends Component implements HasActions, HasSchemas
 
         $tombstones = $this->tombstones($messages, $conversations, $previews);
 
-        // Rendering is the heartbeat (throttled in the cache); then the dots of whoever is on screen:
-        // the other side of every direct conversation in the list and everybody in the open one.
+        // Rendering is the heartbeat (throttled in the cache); then the dots of whoever is on screen.
         Presence::touch($user);
-        $presence = [];
-
-        if (Presence::enabled()) {
-            $people = [];
-
-            if ($user !== null) {
-                foreach ($conversations as $item) {
-                    $counterpart = $item->counterpartFor($user);
-
-                    if ($counterpart !== null) {
-                        $people[] = $counterpart;
-                    }
-                }
-            }
-
-            foreach ($current->participants ?? [] as $participant) {
-                if ($participant->isActive() && $participant->user !== null) {
-                    $people[] = $participant->user;
-                }
-            }
-
-            $presence = Presence::statuses($people, $user);
-        }
+        [$presence, $onlineCount] = $this->presenceData($conversations, $user, $current);
         $names = [];
 
         foreach ($current->participants ?? [] as $participant) {
@@ -942,6 +996,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
                 : [],
             'avatars' => $avatars,
             'presence' => $presence,
+            'onlineCount' => $onlineCount,
             'presenceOn' => Presence::enabled(),
             'badgePolling' => ChatConfig::badgePolling(),
             'avatarsOn' => ChatConfig::avatars(),

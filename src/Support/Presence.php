@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat\Support;
 
+use Asignua\FilamentChat\Models\Conversation;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Who is online. Both delivery modes use the same heartbeat: whatever the chat already
@@ -19,6 +22,9 @@ use Illuminate\Support\Facades\Cache;
  */
 final class Presence
 {
+    /** Seconds of slack on top of the heartbeat interval. */
+    public const int MARGIN = 15;
+
     private const string CACHE_PREFIX = 'filament-chat:presence:';
 
     /**
@@ -38,17 +44,25 @@ final class Presence
             return false;
         }
 
-        $key = self::CACHE_PREFIX.$user->getKey();
+        // The user model is part of the key: two panels with different user models may share a key value.
+        $key = self::CACHE_PREFIX.$user::class.':'.$user->getKey();
 
-        if (!Cache::add($key, 1, ChatConfig::presenceHeartbeat())) {
+        // Presence is decoration: a broken cache or table must never take the panel down with it.
+        try {
+            if (!Cache::add($key, 1, ChatConfig::presenceHeartbeat())) {
+                return false;
+            }
+
+            self::table()->upsert(
+                [['user_id' => $user->getKey(), 'last_seen_at' => Carbon::now()]],
+                ['user_id'],
+                ['last_seen_at'],
+            );
+        } catch (Throwable $e) {
+            Log::warning('filament-chat: presence heartbeat failed: '.$e->getMessage());
+
             return false;
         }
-
-        self::table()->upsert(
-            [['user_id' => $user->getKey(), 'last_seen_at' => Carbon::now()]],
-            ['user_id'],
-            ['last_seen_at'],
-        );
 
         return true;
     }
@@ -57,11 +71,12 @@ final class Presence
      * Presence of the given people as `$viewer` may see it, keyed by user key. Everybody the
      * `hidePresenceUsing()` rule hides is left out; so is anyone never seen.
      *
-     * @param iterable<Model> $users
+     * @param iterable<Model>   $users
+     * @param Conversation|null $context the conversation the people are shown in (handed to the privacy rule)
      *
      * @return array<int|string, PresenceStatus>
      */
-    public static function statuses(iterable $users, ?Model $viewer): array
+    public static function statuses(iterable $users, ?Model $viewer, ?Conversation $context = null): array
     {
         if (!self::enabled()) {
             return [];
@@ -75,7 +90,7 @@ final class Presence
                 continue;
             }
 
-            if ($hide === null || !$hide($user, $viewer)) {
+            if ($hide === null || !$hide($user, $viewer, $context)) {
                 $visible[$user->getKey()] = $user;
             }
         }
@@ -97,6 +112,35 @@ final class Presence
         }
 
         return $statuses;
+    }
+
+    /**
+     * A fingerprint of what the dots and texts say, to skip re-rendering when nothing changed.
+     *
+     * @param array<int|string, PresenceStatus> $statuses
+     */
+    public static function signature(array $statuses): string
+    {
+        return md5((string) json_encode(array_map(fn (PresenceStatus $status): ?string => $status->label(), $statuses)));
+    }
+
+    /**
+     * Why people would flicker offline between two heartbeats, or null. The heartbeat is the badge
+     * poll, so it lands every ceil(heartbeat / badge) * badge seconds; online_seconds needs a margin on top.
+     */
+    public static function misconfiguration(): ?string
+    {
+        if (!ChatConfig::presence()) {
+            return null;
+        }
+
+        $badge = ChatConfig::badgePolling();
+        $interval = (int) ceil(ChatConfig::presenceHeartbeat() / $badge) * $badge;
+        $needed = $interval + self::MARGIN;
+
+        return ChatConfig::presenceOnlineSeconds() < $needed
+            ? 'filament-chat: presence.online_seconds ('.ChatConfig::presenceOnlineSeconds().") is below {$needed} (heartbeat lands every {$interval} s + ".self::MARGIN.' s margin): people will flicker offline. Raise online_seconds or lower heartbeat_seconds / polling.badge.'
+            : null;
     }
 
     public static function isOnline(?CarbonInterface $lastSeen): bool

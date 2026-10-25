@@ -156,7 +156,7 @@ class PresenceTest extends TestCase
 
         Cache::flush();
         Carbon::setTestNow('2026-10-25 10:10:00');
-        Livewire::test(ChatWindow::class)->call('heartbeat');
+        Livewire::test(ChatWindow::class);
         $this->assertSame('2026-10-25 10:10:00', $this->seenAt($me));
     }
 
@@ -204,6 +204,138 @@ class PresenceTest extends TestCase
             $table->unsignedBigInteger('user_id')->primary();
             $table->timestamp('last_seen_at')->nullable();
         });
+    }
+
+    public function test_the_group_count_ignores_people_outside_the_open_group(): void
+    {
+        $me = $this->user();
+        $x = $this->user();
+        $y = $this->user();
+        $member = $this->user();
+        $this->direct($me, $x);
+        $this->direct($me, $y);
+        $group = $this->group($me, 'Team', $member);
+        Presence::touch($x);
+        Presence::touch($y);
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)
+            ->call('open', $group->ulid)
+            ->assertDontSeeHtml('data-fchat-online-count');
+    }
+
+    public function test_someone_who_left_the_group_sees_no_presence_in_it(): void
+    {
+        $me = $this->user();
+        $a = $this->user();
+        $group = $this->group($me, 'Team', $a);
+        Presence::touch($me);
+        $this->actingAs($a);
+        app(\Asignua\FilamentChat\Services\ChatService::class)->leave($group, $a);
+
+        Livewire::test(ChatWindow::class)
+            ->call('open', $group->ulid)
+            ->assertDontSeeHtml('data-fchat-online-count');
+    }
+
+    public function test_the_privacy_hook_gets_the_conversation(): void
+    {
+        $me = $this->user();
+        $a = $this->user();
+        $group = $this->group($me, 'Team', $a);
+        Presence::touch($a);
+        $seen = [];
+        app(ChatManager::class)->hidePresenceUsing = function (Model $subject, ?Model $viewer, $context = null) use (&$seen): bool {
+            $seen[] = $context?->getKey();
+
+            return false;
+        };
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)->call('open', $group->ulid);
+
+        $this->assertContains($group->id, $seen);
+    }
+
+    public function test_the_heartbeat_renders_only_when_something_changed(): void
+    {
+        $me = $this->user();
+        $colleague = $this->user();
+        $this->direct($me, $colleague);
+        Presence::touch($colleague);
+        $this->actingAs($me);
+
+        $component = Livewire::test(ChatWindow::class);
+        $this->assertStringContainsString('data-fchat-online', $component->html());
+        $component->call('heartbeat');
+        $this->assertNull($component->effects['html'] ?? null, 'nothing changed: not re-rendered');
+
+        Carbon::setTestNow('2026-10-25 10:02:00');
+        $component->call('heartbeat');
+        $this->assertNotNull($component->effects['html'] ?? null, 'went offline: re-rendered');
+        $this->assertStringNotContainsString('data-fchat-online', $component->html());
+    }
+
+    public function test_a_hidden_window_does_not_refresh(): void
+    {
+        $me = $this->user();
+        $colleague = $this->user();
+        $this->direct($me, $colleague);
+        $this->actingAs($me);
+
+        $component = Livewire::test(ChatWindow::class)->call('setVisible', false);
+        Presence::touch($colleague);
+        $component->call('heartbeat');
+
+        $this->assertStringNotContainsString('data-fchat-online', $component->html());
+    }
+
+    public function test_a_failing_heartbeat_never_breaks_the_page(): void
+    {
+        $user = $this->user();
+        Cache::shouldReceive('add')->andThrow(new \RuntimeException('cache down'));
+
+        $this->assertFalse(Presence::touch($user));
+    }
+
+    public function test_the_throttle_key_includes_the_user_model(): void
+    {
+        $user = $this->user();
+        Presence::touch($user);
+
+        $this->assertTrue(Cache::has('filament-chat:presence:'.$user::class.':'.$user->getKey()));
+    }
+
+    public function test_a_flickering_configuration_is_reported(): void
+    {
+        // heartbeat 30 s on a 60 s poll lands every 60 s; 60 s online leaves no margin.
+        config(['filament-chat.presence.online_seconds' => 60]);
+        $this->assertNotNull(Presence::misconfiguration());
+
+        config(['filament-chat.presence.online_seconds' => 90]);
+        $this->assertNull(Presence::misconfiguration());
+
+        config(['filament-chat.presence.heartbeat_seconds' => 150, 'filament-chat.presence.online_seconds' => 150]);
+        $this->assertNotNull(Presence::misconfiguration(), 'ceil(150/60)*60 = 180');
+
+        config(['filament-chat.presence.enabled' => false]);
+        $this->assertNull(Presence::misconfiguration());
+    }
+
+    public function test_the_plugin_sets_the_heartbeat(): void
+    {
+        \Asignua\FilamentChat\FilamentChatPlugin::make()->presenceHeartbeatSeconds(45)->register(\Filament\Facades\Filament::getCurrentOrDefaultPanel());
+
+        $this->assertSame(45, \Asignua\FilamentChat\Support\ChatConfig::presenceHeartbeat());
+    }
+
+    public function test_the_table_check_is_remembered_across_requests(): void
+    {
+        $this->assertTrue(\Asignua\FilamentChat\Support\ChatConfig::presenceAvailable());
+        Schema::drop('chat_presences');
+        app(ChatManager::class)->presenceTable = null;
+
+        $this->assertTrue(\Asignua\FilamentChat\Support\ChatConfig::presenceAvailable(), 'answered from the cache');
     }
 
     private function seenAt(Model $user): ?string

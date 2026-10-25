@@ -72,6 +72,8 @@ abstract class TestCase extends Orchestra
         $app['config']->set('auth.providers.users.model', User::class);
         $app['config']->set('filament-chat.realtime.enabled', true);
         $app['config']->set('broadcasting.default', 'null');
+        // Testbench's .env says CACHE_STORE=database, whose table the suite does not create.
+        $app['config']->set('cache.default', 'array');
     }
 
     protected function defineDatabaseMigrations(): void

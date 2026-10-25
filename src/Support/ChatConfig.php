@@ -11,7 +11,9 @@ use Asignua\FilamentChat\Models\MessageReaction;
 use Asignua\FilamentChat\Models\Participant;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Typed access to config/filament-chat.php. The plugin's fluent setters write
@@ -194,8 +196,25 @@ final class ChatConfig
         $manager = app(ChatManager::class);
 
         if ($manager->presenceTable === null) {
-            $model = self::participantModel();
-            $manager->presenceTable = (new $model)->getConnection()->getSchemaBuilder()->hasTable(self::presenceTable());
+            // The dock asks on every panel page. A table that exists keeps existing, so "yes" is remembered
+            // across requests (clear the cache if you ever drop the table); "no" is rechecked each request,
+            // so running the migration takes effect at once.
+            $key = 'filament-chat:presence-table:'.self::presenceTable();
+
+            try {
+                $manager->presenceTable = Cache::get($key) === true;
+
+                if (!$manager->presenceTable) {
+                    $model = self::participantModel();
+                    $manager->presenceTable = (new $model)->getConnection()->getSchemaBuilder()->hasTable(self::presenceTable());
+
+                    if ($manager->presenceTable) {
+                        Cache::forever($key, true);
+                    }
+                }
+            } catch (Throwable) {
+                $manager->presenceTable = false;
+            }
         }
 
         return $manager->presenceTable;

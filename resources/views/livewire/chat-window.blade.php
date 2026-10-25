@@ -230,7 +230,7 @@
                             @endif
                             <div class="truncate text-xs text-gray-500 dark:text-gray-400">
                                 {{ $members->map(fn ($u) => ChatUsers::name($u))->join(', ') }}
-                                @if ($presenceOn && ($onlineCount = collect($presence)->where('online', true)->count()) > 0)
+                                @if ($presenceOn && $onlineCount > 0)
                                     <span data-fchat-online-count>· {{ __('filament-chat::chat.online_count', ['count' => $onlineCount]) }}</span>
                                 @endif
                             </div>

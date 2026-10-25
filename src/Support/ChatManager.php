@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Asignua\FilamentChat\Support;
 
 use Asignua\FilamentChat\FilamentChatPlugin;
+use Asignua\FilamentChat\Models\Conversation;
 use Asignua\FilamentChat\Support\References\ReferenceRegistry;
 use Closure;
 use Filament\Facades\Filament;
@@ -29,7 +30,7 @@ final class ChatManager
     /** @var (Closure(Model): ?string)|null */
     public ?Closure $avatarUsing = null;
 
-    /** @var (Closure(Model, ?Model): bool)|null */
+    /** @var (Closure(Model, ?Model, ?Conversation=): bool)|null */
     public ?Closure $hidePresenceUsing = null;
 
     public ?FilamentChatPlugin $plugin = null;

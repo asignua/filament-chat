@@ -6,6 +6,7 @@ namespace Asignua\FilamentChat;
 
 use Asignua\FilamentChat\Enums\ChatHook;
 use Asignua\FilamentChat\Livewire\ChatWindow;
+use Asignua\FilamentChat\Models\Conversation;
 use Asignua\FilamentChat\Pages\Chat;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
@@ -48,7 +49,7 @@ class FilamentChatPlugin implements Plugin
     /** @var (Closure(Model): ?string)|null */
     protected ?Closure $avatarUrl = null;
 
-    /** @var (Closure(Model, ?Model): bool)|null */
+    /** @var (Closure(Model, ?Model, ?Conversation=): bool)|null */
     protected ?Closure $hidePresence = null;
 
     /** @var (Closure(): list<AllResources|ReferenceType>)|list<AllResources|ReferenceType> */
@@ -174,10 +175,18 @@ class FilamentChatPlugin implements Plugin
     }
 
     /**
-     * Privacy: hide a person's presence from a viewer. Gets the person shown and the viewer;
+     * At most one presence write per person per this many seconds (keep online_seconds above the real interval).
+     */
+    public function presenceHeartbeatSeconds(int $seconds): static
+    {
+        return $this->set('presence.heartbeat_seconds', $seconds);
+    }
+
+    /**
+     * Privacy: hide a person's presence from a viewer. Gets the person shown, the viewer and, where known, the conversation they are shown in;
      * true — no dot and no "last seen" for them.
      *
-     * @param Closure(Model, ?Model): bool $hide
+     * @param Closure(Model, ?Model, ?Conversation=): bool $hide
      */
     public function hidePresenceUsing(Closure $hide): static
     {

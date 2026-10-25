@@ -17,12 +17,14 @@ use Asignua\FilamentChat\Services\ChatService;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\ChatUsers;
+use Asignua\FilamentChat\Support\Presence;
 use Filament\PanelRegistry;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Spatie\LaravelPackageTools\Package;
@@ -78,6 +80,10 @@ class FilamentChatServiceProvider extends PackageServiceProvider
         // later. Read now, the config would still say what .env says.
         $this->app->booted(function (): void {
             app(PanelRegistry::class);
+
+            if (($warning = Presence::misconfiguration()) !== null) {
+                Log::warning($warning);
+            }
 
             if (!ChatConfig::realtime()) {
                 return;
