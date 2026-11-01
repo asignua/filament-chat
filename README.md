@@ -680,6 +680,15 @@ composer format    # Pint
 npm run build      # rebuild resources/dist/filament-chat.css after changing views
 ```
 
+## More plugins by asign
+
+- [Chat Pro](https://filamentphp.com/plugins/asign-chat-pro) — attachments, threads and moderation for Chat
+- [Mail Log](https://filamentphp.com/plugins/asign-mail-log) — journal of outgoing mail
+- [Record Lock](https://filamentphp.com/plugins/asign-record-lock) — stop two people editing the same record
+- [Themes](https://filamentphp.com/plugins/asign-themes) — per-user and per-panel colour themes
+
+All plugins: <https://filamentphp.com/plugins?q=asign>
+
 ## License
 
 MIT. See [LICENSE.md](https://github.com/asignua/filament-chat/blob/main/LICENSE.md).
