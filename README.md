@@ -682,7 +682,7 @@ npm run build      # rebuild resources/dist/filament-chat.css after changing vie
 
 ## More plugins by asign
 
-- [Chat Pro](https://filamentphp.com/plugins/asign-chat-pro) — attachments, threads and moderation for Chat
+- [Chat Pro](https://filamentphp.com/plugins/asign-chat-pro) — files, typing indicator and search for Chat
 - [Mail Log](https://filamentphp.com/plugins/asign-mail-log) — journal of outgoing mail
 - [Record Lock](https://filamentphp.com/plugins/asign-record-lock) — stop two people editing the same record
 - [Themes](https://filamentphp.com/plugins/asign-themes) — per-user and per-panel colour themes
