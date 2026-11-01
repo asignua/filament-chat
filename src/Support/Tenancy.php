@@ -31,6 +31,9 @@ final class Tenancy
     /** > 0 while code runs inside {@see self::unscoped()}. */
     private static int $unscoped = 0;
 
+    /** @var array{0: mixed}|null the tenant chosen by {@see self::forTenant()} */
+    private static ?array $override = null;
+
     /**
      * Fail-closed state: tenancy is on and migrated, a person is signed in, but no tenant resolves (a page of a tenancy
      * panel without a `{tenant}` segment — profile, tenant registration, MFA setup…). Nothing of any tenant may be shown
@@ -43,8 +46,10 @@ final class Tenancy
     }
 
     /**
-     * Run code that has no tenant of its own to look at (a broadcast auth request, a file download) and decides about the
-     * conversation's tenant itself — see {@see self::mayListen()}.
+     * Run code that has no tenant of its own to look at (a broadcast auth request, a file download, host code outside a
+     * tenant route) and, where it matters, decides about the conversation's tenant itself — see {@see self::mayListen()}.
+     * Neither the panel's tenant nor the resolver counts inside: nothing is narrowed and no tenant is stamped.
+     * To act inside one tenant choose it with {@see self::forTenant()}.
      *
      * @template T
      *
@@ -54,12 +59,39 @@ final class Tenancy
      */
     public static function unscoped(\Closure $callback): mixed
     {
+        $override = self::$override;
+        self::$override = null;
         self::$unscoped++;
 
         try {
             return $callback();
         } finally {
             self::$unscoped--;
+            self::$override = $override;
+        }
+    }
+
+    /**
+     * Run host code (a controller, a webhook, a job started inside a request) AS a tenant, chosen explicitly: the chat
+     * services see exactly that tenant, whatever the request resolves. The tenant is a model or a plain key, as the
+     * resolver returns it.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $callback
+     *
+     * @return T
+     */
+    public static function forTenant(mixed $tenant, \Closure $callback): mixed
+    {
+        $previous = [self::$override, self::$unscoped];
+        self::$override = [$tenant];
+        self::$unscoped = 0;
+
+        try {
+            return $callback();
+        } finally {
+            [self::$override, self::$unscoped] = $previous;
         }
     }
 
@@ -101,6 +133,10 @@ final class Tenancy
      */
     public static function tenant(): mixed
     {
+        if (self::$override !== null) {
+            return self::$override[0];
+        }
+
         $resolver = app(ChatManager::class)->resolveTenantUsing;
 
         return $resolver !== null ? $resolver() : Filament::getTenant();
@@ -114,6 +150,11 @@ final class Tenancy
     public static function reference(): ?array
     {
         if (!self::enabled()) {
+            return null;
+        }
+
+        // Inside unscoped() there is no "current" tenant at all — neither the panel's nor the resolver's.
+        if (self::$unscoped > 0 && self::$override === null) {
             return null;
         }
 
@@ -338,7 +379,8 @@ final class Tenancy
         // No relation to ask: Filament's own rule, user by user.
         $allowed = [];
 
-        foreach ($model::query()->cursor() as $user) {
+        // Only the users the query is already narrowed to (a message's recipients), never the whole table.
+        foreach ((clone $query)->cursor() as $user) {
             if ($user instanceof HasTenants && $user->canAccessTenant($tenant)) {
                 $allowed[] = $user->getKey();
             }

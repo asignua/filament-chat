@@ -20,7 +20,9 @@ use Asignua\FilamentChat\Support\Tenancy;
 use Asignua\FilamentChat\Tests\TestCase;
 use Filament\Facades\Filament;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -392,6 +394,51 @@ class TenancyTest extends TestCase
         $this->assertEqualsCanonicalizing([$this->shared->id, $this->acmeOnly->id], $query->pluck('id')->all());
     }
 
+    public function test_host_code_outside_a_tenant_route_chooses_the_tenant_explicitly(): void
+    {
+        $this->in($this->acme);
+        $conversation = $this->direct($this->shared, $this->acmeOnly);
+
+        // A webhook / controller on the same guard: signed in, no tenant → closed.
+        Filament::setTenant(null, isQuiet: true);
+        $this->actingAs($this->shared);
+        $service = app(ChatService::class);
+        $this->assertThrowsInvalid(fn () => $service->send($conversation, $this->shared, new MessageData('no tenant')));
+
+        // The documented pattern: pick the tenant for the call …
+        $sent = Tenancy::forTenant($this->acme, fn () => $service->send($conversation, $this->shared, new MessageData('as Acme')));
+        $this->assertSame('as Acme', $sent->body);
+        $made = Tenancy::forTenant($this->globex, fn () => $service->startDirect($this->shared, $this->globexOnly));
+        $this->assertSame((string) $this->globex->id, $made->tenant_id, 'stamped with the chosen tenant');
+
+        // … or look at everything without one.
+        $this->assertNotNull(Tenancy::unscoped(fn () => app(ConversationRepository::class)->findByUlid($conversation->ulid)));
+        $this->assertTrue(Tenancy::closed(), 'and back to closed afterwards');
+    }
+
+    public function test_belonging_reads_only_the_recipients_even_without_a_members_relation(): void
+    {
+        foreach (range(1, 40) as $i) {
+            $this->user();
+        }
+
+        $tenant = TeamWithoutMembers::query()->findOrFail($this->acme->id);
+        $conversation = $this->direct($this->shared, $this->acmeOnly);
+        $conversation->tenant_type = $tenant->getMorphClass();
+        $conversation->tenant_id = (string) $tenant->id;
+        Relation::morphMap([$tenant->getMorphClass() => TeamWithoutMembers::class], merge: true);
+
+        $loaded = 0;
+        User::retrieved(function () use (&$loaded): void {
+            $loaded++;
+        });
+
+        $ids = Tenancy::belonging($conversation, [$this->shared->id, $this->globexOnly->id]);
+
+        $this->assertSame([$this->shared->id], $ids);
+        $this->assertLessThanOrEqual(4, $loaded, 'the recipients are read (and asked), not all 43 users');
+    }
+
     /**
      * What the panel's BODY_END and USER_MENU_BEFORE hooks print on a page.
      */
@@ -421,6 +468,16 @@ class TenancyTest extends TestCase
         }
 
         $this->fail('InvalidArgumentException expected');
+    }
+}
+
+class TeamWithoutMembers extends Model
+{
+    protected $table = 'teams';
+
+    public function getMorphClass(): string
+    {
+        return 'team-without-members';
     }
 }
 
