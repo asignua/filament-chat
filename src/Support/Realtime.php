@@ -14,6 +14,7 @@ final class Realtime
 {
     public static function listener(Model $user): string
     {
-        return 'echo-private:'.ChatUpdated::channelFor(ChatUsers::broadcastKey($user)).',.'.ChatUpdated::NAME;
+        // Inside a tenant the person listens on that tenant's channel only.
+        return 'echo-private:'.ChatUpdated::channelFor(ChatUsers::broadcastKey($user), Tenancy::currentChannelKey()).',.'.ChatUpdated::NAME;
     }
 }

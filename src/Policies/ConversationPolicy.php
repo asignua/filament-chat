@@ -6,6 +6,7 @@ namespace Asignua\FilamentChat\Policies;
 
 use Asignua\FilamentChat\Models\Conversation;
 use Asignua\FilamentChat\Repositories\ConversationRepository;
+use Asignua\FilamentChat\Support\Tenancy;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -30,7 +31,7 @@ class ConversationPolicy
 
     public function view(Model $user, Conversation $conversation): bool
     {
-        return $this->conversations->participant($conversation, $user) !== null;
+        return Tenancy::owns($conversation) && $this->conversations->participant($conversation, $user) !== null;
     }
 
     public function create(Model $user): bool
@@ -40,7 +41,7 @@ class ConversationPolicy
 
     public function send(Model $user, Conversation $conversation): bool
     {
-        return $this->conversations->participant($conversation, $user)?->isActive() ?? false;
+        return Tenancy::owns($conversation) && ($this->conversations->participant($conversation, $user)?->isActive() ?? false);
     }
 
     public function update(Model $user, Conversation $conversation): bool

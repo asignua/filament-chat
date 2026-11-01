@@ -12,6 +12,7 @@ use Asignua\FilamentChat\Models\Message;
 use Asignua\FilamentChat\Models\Participant;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatUsers;
+use Asignua\FilamentChat\Support\Tenancy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -37,7 +38,8 @@ class ConversationRepository
     {
         $model = ChatConfig::conversationModel();
 
-        return $model::query();
+        // Only the current tenant's conversations (nothing changes without tenancy).
+        return Tenancy::scope($model::query());
     }
 
     public function findByUlid(string $ulid): ?Conversation
@@ -58,7 +60,8 @@ class ConversationRepository
             throw new InvalidArgumentException(__('filament-chat::chat.error_self'));
         }
 
-        $key = min($aId, $bId).':'.max($aId, $bId);
+        // One direct conversation per pair AND tenant: the same two people have a separate one in each.
+        $key = (Tenancy::active() ? Tenancy::channelKey(Tenancy::reference()).'/' : '').min($aId, $bId).':'.max($aId, $bId);
         $existing = $this->query()->where('direct_key', $key)->first();
 
         if ($existing !== null) {
@@ -325,7 +328,10 @@ class ConversationRepository
     {
         $model = ChatConfig::conversationModel();
 
-        return new $model;
+        $conversation = new $model;
+        Tenancy::stamp($conversation);
+
+        return $conversation;
     }
 
     /**
@@ -337,7 +343,7 @@ class ConversationRepository
         // A message model with soft deletes (an extension's): a deleted message is nothing to read.
         $deletedAt = method_exists($model, 'getDeletedAtColumn') ? $model->getDeletedAtColumn() : null;
 
-        return DB::table(ChatConfig::table('messages').' as m')
+        $query = DB::table(ChatConfig::table('messages').' as m')
             ->when($deletedAt !== null, fn (QueryBuilder $query): QueryBuilder => $query->whereNull('m.'.$deletedAt))
             ->join(ChatConfig::table('participants').' as p', function (JoinClause $join) use ($user): void {
                 $join->on('p.conversation_id', '=', 'm.conversation_id')
@@ -348,6 +354,13 @@ class ConversationRepository
             ->where(fn (QueryBuilder $query): QueryBuilder => $query
                 ->whereNull('p.last_read_message_id')
                 ->orWhereColumn('m.id', '>', 'p.last_read_message_id'));
+
+        if (Tenancy::active()) {
+            $query->join(ChatConfig::table('conversations').' as c', 'c.id', '=', 'm.conversation_id');
+            Tenancy::scopeTable($query, 'c');
+        }
+
+        return $query;
     }
 
     /**

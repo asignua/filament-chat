@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
 /**
@@ -24,6 +25,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $title
  * @property int|null $created_by_user_id
  * @property string|null $direct_key
+ * @property string|null $tenant_type
+ * @property string|null $tenant_id
  * @property Carbon|null $last_message_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -85,6 +88,16 @@ class Conversation extends Model
         return $this->participants
             ->first(fn (Participant $participant): bool => $participant->user_id !== $viewer->getKey())
             ?->user;
+    }
+
+    /**
+     * The tenant this conversation belongs to (null without tenancy).
+     *
+     * @return MorphTo<Model, $this>
+     */
+    public function tenant(): MorphTo
+    {
+        return $this->morphTo('tenant');
     }
 
     /**

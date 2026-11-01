@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Asignua\FilamentChat\Events;
 
 use Asignua\FilamentChat\Support\ChatConfig;
+use Asignua\FilamentChat\Support\Tenancy;
 use Illuminate\Broadcasting\InteractsWithBroadcasting;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -36,6 +37,8 @@ class ChatUpdated implements ShouldBroadcastNow, ShouldDispatchAfterCommit
      * @param list<string> $recipients broadcast keys of the recipients
      * @param string|null  $reader     broadcast key of the person whose read pointer moved (a read event
      *                                 changes nobody else's unread counter)
+     * @param string|null  $tenant     channel segment of the conversation's tenant (Tenancy::channelKeyOf());
+     *                                 set — the event goes to the tenant's channels, so nothing crosses tenants
      */
     public function __construct(
         public readonly array $recipients,
@@ -43,6 +46,7 @@ class ChatUpdated implements ShouldBroadcastNow, ShouldDispatchAfterCommit
         public readonly ?string $message = null,
         public readonly ?string $author = null,
         public readonly ?string $reader = null,
+        public readonly ?string $tenant = null,
     ) {
         // `realtime.connection` — a connection other than the app's default one.
         $this->broadcastVia(ChatConfig::broadcastConnection());
@@ -54,7 +58,7 @@ class ChatUpdated implements ShouldBroadcastNow, ShouldDispatchAfterCommit
     public function broadcastOn(): array
     {
         return array_map(
-            fn (string $key): PrivateChannel => new PrivateChannel(self::channelFor($key)),
+            fn (string $key): PrivateChannel => new PrivateChannel(self::channelFor($key, $this->tenant)),
             $this->recipients,
         );
     }
@@ -78,8 +82,8 @@ class ChatUpdated implements ShouldBroadcastNow, ShouldDispatchAfterCommit
         ];
     }
 
-    public static function channelFor(string $key): string
+    public static function channelFor(string $key, ?string $tenant = null): string
     {
-        return self::CHANNEL.$key;
+        return $tenant !== null ? Tenancy::CHANNEL.$tenant.'.user.'.$key : self::CHANNEL.$key;
     }
 }

@@ -204,6 +204,35 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Multi-tenancy
+    |--------------------------------------------------------------------------
+    |
+    | Conversations belong to a tenant (`tenant_type` + `tenant_id` on the
+    | conversation, a morph pair); the list, unread counters, people to write to,
+    | presence, bell notifications and the real-time channels are narrowed to the
+    | current tenant, so a person in two tenants has two separate chats.
+    |
+    | enabled         — null: automatic (on when the panel has ->tenant(...), or a
+    |                   tenant resolver is given); true / false force it. Plugin:
+    |                   ->tenantScoped(bool).
+    | members_relation — the relation of the tenant model that lists its users;
+    |                   without it (and without ->tenantUsers()) Filament's
+    |                   canAccessTenant() is asked of every user.
+    |
+    | Own tenancy (stancl…): ->resolveTenantUsing(fn () => tenant()) and
+    | ->tenantUsers(fn ($query, $tenant) => …). Needs the
+    | `add_tenant_to_filament_chat_conversations` migration; conversations created
+    | before it have no tenant and are visible only while scoping is off.
+    |
+    */
+
+    'tenancy' => [
+        'enabled' => null,
+        'members_relation' => 'members',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Notifications
     |--------------------------------------------------------------------------
     |

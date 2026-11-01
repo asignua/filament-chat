@@ -33,6 +33,15 @@ final class ChatManager
     /** @var (Closure(Model, ?Model, ?Conversation=): bool)|null */
     public ?Closure $hidePresenceUsing = null;
 
+    /** @var (Closure(): mixed)|null the current tenant, for apps with their own tenancy (stancl…) */
+    public ?Closure $resolveTenantUsing = null;
+
+    /** @var (Closure(Builder<Model>, mixed): mixed)|null narrows the people query to the tenant's members */
+    public ?Closure $tenantUsersUsing = null;
+
+    /** @var (Closure(Model, string): bool)|null may the person listen on this tenant's channel */
+    public ?Closure $authorizeTenantChannelUsing = null;
+
     public ?FilamentChatPlugin $plugin = null;
 
     public ?string $panelId = null;
@@ -48,6 +57,9 @@ final class ChatManager
 
     /** Whether the presences table exists (see ChatConfig::presenceAvailable()); null — not yet. */
     public ?bool $presenceTable = null;
+
+    /** Whether the conversations table has the tenant columns (see Tenancy::columnsAvailable()); null — not yet. */
+    public ?bool $tenantColumns = null;
 
     public readonly ChatHooks $hooks;
 

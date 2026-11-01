@@ -55,6 +55,15 @@ class FilamentChatPlugin implements Plugin
     /** @var (Closure(): list<AllResources|ReferenceType>)|list<AllResources|ReferenceType> */
     protected array|Closure $references = [];
 
+    /** @var (Closure(): mixed)|null */
+    protected ?Closure $resolveTenant = null;
+
+    /** @var (Closure(Builder<Model>, mixed): mixed)|null */
+    protected ?Closure $tenantUsers = null;
+
+    /** @var (Closure(Model, string): bool)|null */
+    protected ?Closure $authorizeTenantChannel = null;
+
     protected string|BackedEnum|Closure|null $navigationIcon = null;
 
     protected string|UnitEnum|Closure|null $navigationGroup = null;
@@ -191,6 +200,57 @@ class FilamentChatPlugin implements Plugin
     public function hidePresenceUsing(Closure $hide): static
     {
         $this->hidePresence = $hide;
+
+        return $this;
+    }
+
+    /**
+     * Multi-tenancy: conversations, people, unread counters, presence and the real-time channels are kept per tenant.
+     * Automatic when the panel has `->tenant(...)`; `->tenantScoped(false)` opts out, `->tenantScoped()` turns it on
+     * for a tenancy the panel does not know (with {@see self::resolveTenantUsing()}). Needs the
+     * `add_tenant_to_filament_chat_conversations` migration.
+     */
+    public function tenantScoped(bool $condition = true): static
+    {
+        return $this->set('tenancy.enabled', $condition);
+    }
+
+    /**
+     * The current tenant, for an app with its own tenancy (stancl/tenancy: `fn () => tenant()`). A model, or a plain
+     * key. Default: `Filament::getTenant()`. Giving it turns scoping on.
+     *
+     * @param Closure(): mixed $tenant
+     */
+    public function resolveTenantUsing(Closure $tenant): static
+    {
+        $this->resolveTenant = $tenant;
+
+        return $this;
+    }
+
+    /**
+     * Who belongs to a tenant, as a users query: `fn ($query, $tenant) => $query->whereBelongsTo($tenant)`. Default:
+     * the tenant's `members` relation (`tenancy.members_relation`), else Filament's `canAccessTenant()` per user.
+     *
+     * @param Closure(Builder<Model>, mixed): mixed $users
+     */
+    public function tenantUsers(Closure $users): static
+    {
+        $this->tenantUsers = $users;
+
+        return $this;
+    }
+
+    /**
+     * May the person listen on the real-time channel of a tenant (its segment: see `Tenancy::channelKey()`)? Default:
+     * the panel's tenant model + `canAccessTenant()`; with your own tenancy give this to check the person
+     * belongs to the tenant (without it the channel — which carries only the person's own events — is left open).
+     *
+     * @param Closure(Model, string): bool $authorize
+     */
+    public function authorizeTenantChannelUsing(Closure $authorize): static
+    {
+        $this->authorizeTenantChannel = $authorize;
 
         return $this;
     }
@@ -341,6 +401,9 @@ class FilamentChatPlugin implements Plugin
         $manager->userNameUsing = $this->userName;
         $manager->avatarUsing = $this->avatarUrl;
         $manager->hidePresenceUsing = $this->hidePresence;
+        $manager->resolveTenantUsing = $this->resolveTenant;
+        $manager->tenantUsersUsing = $this->tenantUsers;
+        $manager->authorizeTenantChannelUsing = $this->authorizeTenantChannel;
 
         foreach (value($this->references) as $type) {
             $manager->references->register($type);

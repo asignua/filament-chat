@@ -1,0 +1,32 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * 1.8: multi-tenancy. The tenant a conversation belongs to, as a morph pair (type + key, both strings so
+ * integer, ULID and UUID keys fit). Null/null — a conversation without a tenant, how every row was until now.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table(config('filament-chat.tables.conversations', 'chat_conversations'), function (Blueprint $table): void {
+            $table->string('tenant_type')->nullable();
+            $table->string('tenant_id', 64)->nullable();
+
+            $table->index(['tenant_type', 'tenant_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table(config('filament-chat.tables.conversations', 'chat_conversations'), function (Blueprint $table): void {
+            $table->dropIndex(['tenant_type', 'tenant_id']);
+            $table->dropColumn(['tenant_type', 'tenant_id']);
+        });
+    }
+};

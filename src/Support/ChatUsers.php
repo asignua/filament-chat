@@ -87,6 +87,9 @@ final class ChatUsers
             $modifier($query);
         }
 
+        // With tenancy: the current tenant's people only (search, selects, group members, presence).
+        Tenancy::limitUsers($query);
+
         return $query;
     }
 

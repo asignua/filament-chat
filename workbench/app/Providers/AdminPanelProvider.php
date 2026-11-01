@@ -22,6 +22,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Workbench\App\Filament\Resources\Notes\NoteResource;
 use Workbench\App\Filament\Resources\Tokens\TokenResource;
 use Workbench\App\Filament\Resources\Users\UserResource;
+use Workbench\App\Models\Team;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -32,11 +33,14 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // `WORKBENCH_TENANCY=1 vendor/bin/testbench serve` — the same panel with teams as tenants.
+            ->when(env('WORKBENCH_TENANCY'), fn (Panel $panel): Panel => $panel->tenant(Team::class, slugAttribute: 'slug'))
             ->databaseNotifications()
-            ->resources([NoteResource::class, UserResource::class, TokenResource::class])
+            // The demo resources have no team column, so the tenancy variant of the panel has none.
+            ->resources(env('WORKBENCH_TENANCY') ? [] : [NoteResource::class, UserResource::class, TokenResource::class])
             ->plugin(FilamentChatPlugin::make()
                 ->users(fn (Builder $query) => $query->where('is_active', true))
-                ->references([ReferenceType::resource(NoteResource::class)->color('warning')]))
+                ->references(env('WORKBENCH_TENANCY') ? [] : [ReferenceType::resource(NoteResource::class)->color('warning')]))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

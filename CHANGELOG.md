@@ -2,6 +2,12 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.8.0 - 2026-11-01
+- New: multi-tenancy. With `$panel->tenant(...)` (or `->tenantScoped()` / `->resolveTenantUsing()` for your own tenancy) conversations, the people to write to, unread counters, presence ("N online"), bell links and the real-time channels are kept per tenant; a person in two tenants sees two separate chats, and the same pair has one direct conversation per tenant. Opt out with `->tenantScoped(false)`; `->tenantUsers()` and `->authorizeTenantChannelUsing()` for custom tenancies; config `tenancy.enabled` / `tenancy.members_relation`.
+- New: fifth migration `add_tenant_to_filament_chat_conversations` (nullable `tenant_type` / `tenant_id` on conversations, indexed). Without it nothing changes and a warning is logged when tenancy is on. Re-run `vendor:publish --tag=filament-chat-migrations` and `migrate`. Conversations that exist already have no tenant and are visible only while scoping is off.
+- New: `ChatUpdated` gets an optional `tenant` argument; with it the event goes to `filament-chat.tenant.{tenant}.user.{key}`. `Support\Tenancy` is the one place that knows (scope, stamp, channel key); `ConversationRepository::query()` is scoped, so extensions that read through it are too.
+- Fixed (hardening): `ConversationPolicy` / `MessagePolicy` refuse a conversation of another tenant.
+
 ## v1.7.0 - 2026-10-25
 - New: presence. A green dot on avatars of people who are online (conversation list), "Online" / "Last seen 5 minutes ago" under the name of a direct conversation, "N online" in a group header. Works with real-time and polling alike: the dock's badge poll and the window render stamp `last_seen_at`, throttled in the cache (`presence.heartbeat_seconds`, 30). Online = seen within `presence.online_seconds` (90).
 - New: config `presence.*` and `tables.presences`; plugin `->presence()`, `->presenceOnlineSeconds()` and `->hidePresenceUsing(fn ($person, $viewer) => …)` (privacy hook).

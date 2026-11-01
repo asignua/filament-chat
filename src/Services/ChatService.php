@@ -19,6 +19,7 @@ use Asignua\FilamentChat\Repositories\ReactionRepository;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatUsers;
 use Asignua\FilamentChat\Support\Mentions;
+use Asignua\FilamentChat\Support\Tenancy;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -293,6 +294,7 @@ class ChatService
                 $message?->ulid,
                 $author !== null ? ChatUsers::broadcastKey($author) : null,
                 $reader,
+                Tenancy::channelKeyOf($conversation),
             ));
         } catch (Throwable $e) {
             report($e);

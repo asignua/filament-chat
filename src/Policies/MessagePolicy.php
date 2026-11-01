@@ -7,6 +7,7 @@ namespace Asignua\FilamentChat\Policies;
 use Asignua\FilamentChat\Models\Message;
 use Asignua\FilamentChat\Repositories\ConversationRepository;
 use Asignua\FilamentChat\Support\ChatConfig;
+use Asignua\FilamentChat\Support\Tenancy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 
@@ -32,6 +33,7 @@ class MessagePolicy
     public function update(Model $user, Message $message): bool
     {
         return self::editableBy($message, $user)
+            && Tenancy::owns($message->conversation)
             && ($this->conversations->participant($message->conversation, $user)?->isActive() ?? false);
     }
 

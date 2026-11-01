@@ -43,6 +43,7 @@ Works with or without a websocket server: turn real-time on with one environment
 | Record references: drop a link to a panel record and it becomes a card | ✓ | ✓ |
 | Real time over Reverb / Pusher / Ably, or polling | ✓ | ✓ |
 | Presence: green "online" dot and "last seen", real time or polling | ✓ | ✓ |
+| **Multi-tenancy**: separate chats per Filament tenant (or your own tenancy) | ✓ | ✓ |
 | RTL, dark mode, 47 languages | ✓ | ✓ |
 | File attachments: drag & drop, paperclip, **paste a screenshot** from the clipboard | | ✓ |
 | Image lightbox, one-click file download | | ✓ |
@@ -88,6 +89,7 @@ Dark mode:
 | **Record references** | Attach a record with a picker, by dropping a link to its page, or "Attach current" in the slide-over. |
 | **Where** | A full **Chat** page and a **top-bar button** with a slide-over; on wide screens the slide-over can be **pinned** as a split screen that stays open across pages. |
 | **Unread** | Counters in the navigation, on the button, in the browser tab title and on the favicon; a bell notification on the first unread message of a conversation and on every mention; a "Reply" toast. |
+| **Multi-tenancy** | With `$panel->tenant(...)` conversations, people, unread counters, presence, bell links and real-time channels are kept per tenant — see [Multi-tenancy](#multi-tenancy). |
 | **Privacy** | A conversation is visible to its members only — admins included. Messages are never deleted. |
 | **RTL** | Right-to-left locales (Persian…) are supported: the layout mirrors with Filament's `dir="rtl"`, message text picks its own direction. |
 | **Languages** | 47: English, Ukrainian, German, Spanish, French, Italian, Dutch, Polish, Brazilian Portuguese, Portuguese, Turkish, Persian and most European and ex-USSR languages ([full list](#translations)); [add yours](#translations). |
@@ -301,6 +303,37 @@ protected function getHeaderActions(): array
 ```
 
 It shows only for records of a referenceable type; it works as a table row action too.
+
+## Multi-tenancy
+
+When the panel has tenancy (`$panel->tenant(Team::class)`) the chat is **per tenant** automatically: a person who belongs to two teams sees two separate conversation lists, with separate unread counters, "N online" and people to write to.
+
+What is scoped to the current tenant (`Filament::getTenant()`):
+
+- **Conversations** — the list, search, opening one by its link; a conversation of another tenant does not exist from here (the policy refuses it too). A new conversation is stamped with the current tenant (`tenant_type` + `tenant_id`, a morph pair of strings — integer, ULID and UUID keys alike). The same two people get one direct conversation **per tenant**.
+- **People** — "New message", group members, `@` mentions and search offer the tenant's members only. By default these are the tenant's `members` relation (`tenancy.members_relation`; `users` is tried too); without a relation Filament's `canAccessTenant()` is asked of every user — correct, but it reads the whole table, so give the relation or `->tenantUsers()` on a big one.
+- **Unread counters** (navigation, button, tab title) and **presence** (the dot, "N online") count the tenant's conversations and people only.
+- **Bell notifications** link into the conversation's own tenant, whichever tenant is current when the notification is opened. (Filament's bell lists a person's notifications from every tenant together; the link takes them to the right one.)
+- **Real time** — events go to `private-filament-chat.tenant.{tenant}.user.{key}` instead of the per-user channel, so a person in two tenants hears only the one they are in (authorised with `canAccessTenant()`); Chat Pro's typing channel carries the tenant too.
+
+Needs one migration (`vendor:publish --tag=filament-chat-migrations`, `migrate`): the nullable `tenant_type` / `tenant_id` columns. **Backward compatible:** without them the chat works exactly as before (a warning is logged if tenancy is on); conversations created before have no tenant and are visible only while scoping is off — move them with an `update` of the two columns if you want them inside a tenant. Without a current tenant (a console command, a queued job) nothing is narrowed.
+
+```php
+FilamentChatPlugin::make()
+    ->tenantScoped(false)                       // opt out on a panel that has tenancy
+```
+
+**Your own tenancy** (stancl/tenancy, a subdomain scheme…) — tell the plugin where the tenant is and who belongs to it:
+
+```php
+FilamentChatPlugin::make()
+    ->tenantScoped()                             // implied by the resolver
+    ->resolveTenantUsing(fn () => tenant())      // a model, or a plain key
+    ->tenantUsers(fn ($query, $tenant) => $query->whereBelongsTo($tenant)) // who can be written to
+    ->authorizeTenantChannelUsing(fn ($user, string $segment) => …)      // real time only, optional
+```
+
+`tenancy.enabled` in the config (`null` = automatic) is the same switch as `->tenantScoped()`. With a plain key as tenant and no `->tenantUsers()` people are not narrowed — the plugin cannot know who belongs where. Without `->authorizeTenantChannelUsing()` and without a Filament tenancy the tenant channel is left open: it only carries the person's own events.
 
 ## Real-time delivery
 

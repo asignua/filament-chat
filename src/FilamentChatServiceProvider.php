@@ -18,6 +18,7 @@ use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\ChatUsers;
 use Asignua\FilamentChat\Support\Presence;
+use Asignua\FilamentChat\Support\Tenancy;
 use Filament\PanelRegistry;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
@@ -37,7 +38,7 @@ class FilamentChatServiceProvider extends PackageServiceProvider
     public const string PACKAGE = 'asignua/filament-chat';
 
     /** Migration stubs, in the order they run (the installer publishes the missing ones). */
-    public const array MIGRATIONS = ['create_filament_chat_tables', 'add_reply_to_filament_chat_messages', 'add_last_read_at_to_filament_chat_participants', 'create_filament_chat_presences_table'];
+    public const array MIGRATIONS = ['create_filament_chat_tables', 'add_reply_to_filament_chat_messages', 'add_last_read_at_to_filament_chat_participants', 'create_filament_chat_presences_table', 'add_tenant_to_filament_chat_conversations'];
 
     public const string STYLESHEET = 'filament-chat';
 
@@ -85,6 +86,10 @@ class FilamentChatServiceProvider extends PackageServiceProvider
                 Log::warning($warning);
             }
 
+            if (Tenancy::enabled() && !Tenancy::columnsAvailable()) {
+                Log::warning('filament-chat: tenancy is on but the conversations table has no tenant columns: run the add_tenant_to_filament_chat_conversations migration (vendor:publish --tag=filament-chat-migrations, migrate). Until then conversations are NOT separated by tenant.');
+            }
+
             if (!ChatConfig::realtime()) {
                 return;
             }
@@ -98,6 +103,15 @@ class FilamentChatServiceProvider extends PackageServiceProvider
                 ChatUpdated::CHANNEL.'{key}',
                 fn (Model $user, string $key): bool => ChatUsers::broadcastKey($user) === $key
                     && ChatUsers::query()->whereKey($user->getKey())->exists(),
+                $guard !== null ? ['guards' => [$guard]] : [],
+            );
+
+            // The same person's channel inside a tenant: a person in two tenants hears only the one they are in.
+            Broadcast::channel(
+                Tenancy::CHANNEL.'{tenant}.user.{key}',
+                fn (Model $user, string $tenant, string $key): bool => ChatUsers::broadcastKey($user) === $key
+                    && ChatUsers::query()->whereKey($user->getKey())->exists()
+                    && Tenancy::mayListen($user, $tenant),
                 $guard !== null ? ['guards' => [$guard]] : [],
             );
 

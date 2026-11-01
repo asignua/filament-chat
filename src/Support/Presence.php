@@ -95,6 +95,11 @@ final class Presence
             }
         }
 
+        // With tenancy: only the current tenant's people are shown as online here.
+        if ($visible !== [] && Tenancy::active()) {
+            $visible = array_intersect_key($visible, array_flip(ChatUsers::chattableIds(array_keys($visible))));
+        }
+
         if ($visible === []) {
             return [];
         }

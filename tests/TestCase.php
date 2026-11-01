@@ -91,6 +91,9 @@ abstract class TestCase extends Orchestra
 
         $presence = include __DIR__.'/../database/migrations/create_filament_chat_presences_table.php.stub';
         $presence->up();
+
+        $tenant = include __DIR__.'/../database/migrations/add_tenant_to_filament_chat_conversations.php.stub';
+        $tenant->up();
     }
 
     /**

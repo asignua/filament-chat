@@ -10,6 +10,7 @@ use Asignua\FilamentChat\Repositories\ConversationRepository;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\ChatUsers;
+use Asignua\FilamentChat\Support\Tenancy;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Panel;
@@ -82,7 +83,12 @@ class Chat extends Page
 
     public static function urlFor(Conversation $conversation): string
     {
-        return static::getUrl([self::QUERY_CONVERSATION => $conversation->ulid], panel: app(ChatManager::class)->panelId);
+        $panel = app(ChatManager::class)->panelId;
+
+        // A link into the conversation's own tenant (a bell notification outlives the tenant that is current).
+        $tenant = Tenancy::columnsAvailable() ? Tenancy::modelOf($conversation) : null;
+
+        return static::getUrl([self::QUERY_CONVERSATION => $conversation->ulid], panel: $panel, tenant: $tenant);
     }
 
     /**
