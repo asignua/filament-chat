@@ -102,7 +102,7 @@ class FilamentChatServiceProvider extends PackageServiceProvider
             Broadcast::channel(
                 ChatUpdated::CHANNEL.'{key}',
                 fn (Model $user, string $key): bool => ChatUsers::broadcastKey($user) === $key
-                    && ChatUsers::query()->whereKey($user->getKey())->exists(),
+                    && Tenancy::unscoped(fn (): bool => ChatUsers::query()->whereKey($user->getKey())->exists()),
                 $guard !== null ? ['guards' => [$guard]] : [],
             );
 
@@ -110,7 +110,7 @@ class FilamentChatServiceProvider extends PackageServiceProvider
             Broadcast::channel(
                 Tenancy::CHANNEL.'{tenant}.user.{key}',
                 fn (Model $user, string $tenant, string $key): bool => ChatUsers::broadcastKey($user) === $key
-                    && ChatUsers::query()->whereKey($user->getKey())->exists()
+                    && Tenancy::unscoped(fn (): bool => ChatUsers::query()->whereKey($user->getKey())->exists())
                     && Tenancy::mayListen($user, $tenant),
                 $guard !== null ? ['guards' => [$guard]] : [],
             );

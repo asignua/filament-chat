@@ -25,6 +25,7 @@ use Asignua\FilamentChat\Support\PresenceStatus;
 use Asignua\FilamentChat\Support\ReadStatus;
 use Asignua\FilamentChat\Support\Realtime;
 use Asignua\FilamentChat\Support\References\RecordUrlResolver;
+use Asignua\FilamentChat\Support\Tenancy;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
@@ -204,7 +205,7 @@ class ChatWindow extends Component implements HasActions, HasSchemas
         $listeners = [self::EVENT_OPEN => 'open'];
         $user = ChatUsers::current();
 
-        if ($user !== null && ChatConfig::realtime()) {
+        if ($user !== null && ChatConfig::realtime() && !Tenancy::closed()) {
             $listeners[Realtime::listener($user)] = 'onChatUpdated';
         }
 

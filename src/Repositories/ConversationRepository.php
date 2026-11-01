@@ -60,6 +60,8 @@ class ConversationRepository
             throw new InvalidArgumentException(__('filament-chat::chat.error_self'));
         }
 
+        $this->ensureCanCreate([$aId, $bId]);
+
         // One direct conversation per pair AND tenant: the same two people have a separate one in each.
         $key = (Tenancy::active() ? Tenancy::channelKey(Tenancy::reference()).'/' : '').min($aId, $bId).':'.max($aId, $bId);
         $existing = $this->query()->where('direct_key', $key)->first();
@@ -95,6 +97,10 @@ class ConversationRepository
         $creatorId = (int) $creator->getKey();
         $members = $this->groupMembers($data, $creatorId);
 
+        if (Tenancy::closed()) {
+            throw new InvalidArgumentException(__('filament-chat::chat.error_not_member'));
+        }
+
         return DB::transaction(function () use ($data, $creatorId, $members): Conversation {
             $conversation = $this->newConversation();
             $conversation->type = ConversationType::Group;
@@ -121,6 +127,10 @@ class ConversationRepository
     {
         if (!$conversation->isGroup()) {
             throw new InvalidArgumentException(__('filament-chat::chat.error_not_group'));
+        }
+
+        if (!Tenancy::owns($conversation)) {
+            throw new InvalidArgumentException(__('filament-chat::chat.error_not_member'));
         }
 
         $members = $this->groupMembers($data, (int) $conversation->created_by_user_id);
@@ -324,6 +334,22 @@ class ConversationRepository
         $conversation->save();
     }
 
+    /**
+     * With tenancy a conversation is only created inside a tenant, between people who belong to it.
+     *
+     * @param list<int> $userIds
+     */
+    private function ensureCanCreate(array $userIds): void
+    {
+        if (Tenancy::closed()) {
+            throw new InvalidArgumentException(__('filament-chat::chat.error_not_member'));
+        }
+
+        if (Tenancy::active() && count(ChatUsers::chattableIds($userIds)) !== count(array_unique($userIds))) {
+            throw new InvalidArgumentException(__('filament-chat::chat.error_not_member'));
+        }
+    }
+
     private function newConversation(): Conversation
     {
         $model = ChatConfig::conversationModel();
@@ -355,7 +381,7 @@ class ConversationRepository
                 ->whereNull('p.last_read_message_id')
                 ->orWhereColumn('m.id', '>', 'p.last_read_message_id'));
 
-        if (Tenancy::active()) {
+        if (Tenancy::active() || Tenancy::closed()) {
             $query->join(ChatConfig::table('conversations').' as c', 'c.id', '=', 'm.conversation_id');
             Tenancy::scopeTable($query, 'c');
         }

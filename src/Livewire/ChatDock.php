@@ -12,6 +12,7 @@ use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatUsers;
 use Asignua\FilamentChat\Support\Presence;
 use Asignua\FilamentChat\Support\Realtime;
+use Asignua\FilamentChat\Support\Tenancy;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
@@ -81,7 +82,7 @@ class ChatDock extends Component
     {
         $user = ChatUsers::current();
 
-        return $user !== null && ChatConfig::realtime()
+        return $user !== null && ChatConfig::realtime() && !Tenancy::closed()
             ? [Realtime::listener($user) => 'onChatUpdated']
             : [];
     }

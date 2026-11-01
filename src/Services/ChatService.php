@@ -49,6 +49,8 @@ class ChatService
      */
     public function send(Conversation $conversation, Model $author, MessageData $data, ?Closure $inTransaction = null): Message
     {
+        $this->ensureInTenant($conversation);
+
         if (!($this->conversations->participant($conversation, $author)?->isActive() ?? false)) {
             throw new InvalidArgumentException(__('filament-chat::chat.error_not_member'));
         }
@@ -83,8 +85,11 @@ class ChatService
         );
 
         if (ChatConfig::databaseNotifications()) {
+            // Someone detached from the tenant since is still a member of the conversation, but gets no text of it.
+            $belonging = Tenancy::belonging($conversation, array_values($members->map(fn (Model $member): int|string => $member->getKey())->all()));
+
             foreach ($members as $member) {
-                if ($member->getKey() === $author->getKey() || !method_exists($member, 'notify')) {
+                if (!in_array($member->getKey(), $belonging, true) || $member->getKey() === $author->getKey() || !method_exists($member, 'notify')) {
                     continue;
                 }
 
@@ -113,6 +118,8 @@ class ChatService
             throw new InvalidArgumentException(__('filament-chat::chat.error_cannot_edit'));
         }
 
+        $this->ensureInTenant($conversation);
+
         $before = $message->mentionIds();
         $mentions = $this->mentionsIn($conversation, $user, $body);
 
@@ -123,8 +130,11 @@ class ChatService
         $added = array_diff($mentions, $before);
 
         if ($added !== [] && ChatConfig::databaseNotifications()) {
-            foreach ($this->conversations->activeMembers($conversation) as $member) {
-                if (in_array((int) $member->getKey(), $added, true) && method_exists($member, 'notify')) {
+            $members = $this->conversations->activeMembers($conversation);
+            $belonging = Tenancy::belonging($conversation, array_values($members->map(fn (Model $member): int|string => $member->getKey())->all()));
+
+            foreach ($members as $member) {
+                if (in_array($member->getKey(), $belonging, true) && in_array((int) $member->getKey(), $added, true) && method_exists($member, 'notify')) {
                     $member->notify(new MentionNotification($conversation, $message));
                 }
             }
@@ -166,6 +176,10 @@ class ChatService
      */
     public function markRead(Conversation $conversation, Model $user, int $messageId): bool
     {
+        if (!Tenancy::owns($conversation)) {
+            return false;
+        }
+
         $before = $this->conversations->participant($conversation, $user)?->last_read_message_id;
 
         if (!$this->conversations->markRead($conversation, $user, $messageId)) {
@@ -220,6 +234,8 @@ class ChatService
             throw new InvalidArgumentException(__('filament-chat::chat.error_groups_off'));
         }
 
+        $this->ensureInTenant($conversation);
+
         // Whoever was removed must see the change too — notify members before and after.
         $before = $this->conversations->activeMemberKeys($conversation);
 
@@ -236,6 +252,8 @@ class ChatService
      */
     public function leave(Conversation $conversation, Model $user): void
     {
+        $this->ensureInTenant($conversation);
+
         $this->conversations->leave($conversation, $user);
 
         $this->broadcast($conversation, [...$this->conversations->activeMemberKeys($conversation), ChatUsers::broadcastKey($user)]);
@@ -250,6 +268,8 @@ class ChatService
         if (!ChatConfig::reactions()) {
             throw new InvalidArgumentException(__('filament-chat::chat.error_reactions_off'));
         }
+
+        $this->ensureInTenant($conversation);
 
         if ($message->conversation_id !== $conversation->id
             || !($this->conversations->participant($conversation, $user)?->isActive() ?? false)) {
@@ -270,6 +290,17 @@ class ChatService
     public function changed(Conversation $conversation): void
     {
         $this->broadcast($conversation, $this->conversations->activeMemberKeys($conversation));
+    }
+
+    /**
+     * A conversation of another tenant (or any conversation while no tenant resolves in a tenancy panel) is not to be
+     * touched — the policies say the same, this is for code that calls the service directly.
+     */
+    private function ensureInTenant(Conversation $conversation): void
+    {
+        if (!Tenancy::owns($conversation)) {
+            throw new InvalidArgumentException(__('filament-chat::chat.error_not_member'));
+        }
     }
 
     /**

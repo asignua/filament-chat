@@ -316,7 +316,7 @@ What is scoped to the current tenant (`Filament::getTenant()`):
 - **Bell notifications** link into the conversation's own tenant, whichever tenant is current when the notification is opened. (Filament's bell lists a person's notifications from every tenant together; the link takes them to the right one.)
 - **Real time** — events go to `private-filament-chat.tenant.{tenant}.user.{key}` instead of the per-user channel, so a person in two tenants hears only the one they are in (authorised with `canAccessTenant()`); Chat Pro's typing channel carries the tenant too.
 
-Needs one migration (`vendor:publish --tag=filament-chat-migrations`, `migrate`): the nullable `tenant_type` / `tenant_id` columns. **Backward compatible:** without them the chat works exactly as before (a warning is logged if tenancy is on); conversations created before have no tenant and are visible only while scoping is off — move them with an `update` of the two columns if you want them inside a tenant. Without a current tenant (a console command, a queued job) nothing is narrowed.
+Needs one migration (`vendor:publish --tag=filament-chat-migrations`, `migrate`): the nullable `tenant_type` / `tenant_id` columns. **Backward compatible:** without them the chat works exactly as before (a warning is logged if tenancy is on); conversations created before have no tenant and are visible only while scoping is off — move them with an `update` of the two columns if you want them inside a tenant. **Fails closed:** on a page of a tenancy panel that has no tenant in its address (profile, tenant registration, MFA setup) the chat renders no button or slide-over, lists nobody and nothing, and refuses every write — it never falls back to "all tenants". Only code with nobody signed in (a console command, a queued job) is not narrowed. A person detached from the tenant, though still a member of a conversation, gets no bell notification with its text.
 
 ```php
 FilamentChatPlugin::make()
@@ -333,7 +333,7 @@ FilamentChatPlugin::make()
     ->authorizeTenantChannelUsing(fn ($user, string $segment) => …)      // real time only, optional
 ```
 
-`tenancy.enabled` in the config (`null` = automatic) is the same switch as `->tenantScoped()`. With a plain key as tenant and no `->tenantUsers()` people are not narrowed — the plugin cannot know who belongs where. Without `->authorizeTenantChannelUsing()` and without a Filament tenancy the tenant channel is left open: it only carries the person's own events.
+`tenancy.enabled` in the config (`null` = automatic) is the same switch as `->tenantScoped()`. **Both closures are required with your own tenancy, otherwise the chat fails closed:** without `->tenantUsers()` nobody can be written to (for a tenant that is a *model* the plugin first tries its `members` / `users` relation when it lists your user model, then `canAccessTenant()`), and without `->authorizeTenantChannelUsing()` the tenant's real-time channel, Chat Pro's typing channel and attachment downloads are refused — the plugin cannot verify who belongs to a tenant it does not know. The closure gets the person and the channel segment (`Tenancy::channelKey([$type, $key])`).
 
 ## Real-time delivery
 

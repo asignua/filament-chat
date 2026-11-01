@@ -28,6 +28,41 @@ final class Tenancy
     /** Prefix of the private channel of a tenant: `filament-chat.tenant.{tenant}.user.{key}`. */
     public const string CHANNEL = 'filament-chat.tenant.';
 
+    /** > 0 while code runs inside {@see self::unscoped()}. */
+    private static int $unscoped = 0;
+
+    /**
+     * Fail-closed state: tenancy is on and migrated, a person is signed in, but no tenant resolves (a page of a tenancy
+     * panel without a `{tenant}` segment — profile, tenant registration, MFA setup…). Nothing of any tenant may be shown
+     * or written then: queries return nothing, {@see self::owns()} says no, people are empty and the UI is not rendered.
+     * Console and queue (nobody signed in) and {@see self::unscoped()} code are not "closed".
+     */
+    public static function closed(): bool
+    {
+        return self::$unscoped === 0 && self::ready() && self::reference() === null && ChatUsers::current() !== null;
+    }
+
+    /**
+     * Run code that has no tenant of its own to look at (a broadcast auth request, a file download) and decides about the
+     * conversation's tenant itself — see {@see self::mayListen()}.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $callback
+     *
+     * @return T
+     */
+    public static function unscoped(\Closure $callback): mixed
+    {
+        self::$unscoped++;
+
+        try {
+            return $callback();
+        } finally {
+            self::$unscoped--;
+        }
+    }
+
     /**
      * Scoping is wanted: `tenancy.enabled` (plugin `->tenantScoped()`) when set, otherwise automatically for a panel
      * with tenancy, or when a tenant resolver is given.
@@ -126,6 +161,10 @@ final class Tenancy
      */
     public static function scope(Builder $query): Builder
     {
+        if (self::closed()) {
+            return $query->whereRaw('1 = 0');
+        }
+
         $reference = self::reference();
 
         if ($reference === null || !self::columnsAvailable()) {
@@ -142,6 +181,10 @@ final class Tenancy
      */
     public static function scopeTable(QueryBuilder $query, string $alias): QueryBuilder
     {
+        if (self::closed()) {
+            return $query->whereRaw('1 = 0');
+        }
+
         $reference = self::reference();
 
         if ($reference === null || !self::columnsAvailable()) {
@@ -171,6 +214,10 @@ final class Tenancy
      */
     public static function owns(Conversation $conversation): bool
     {
+        if (self::closed()) {
+            return false;
+        }
+
         $reference = self::reference();
 
         if ($reference === null || !self::columnsAvailable()) {
@@ -178,6 +225,17 @@ final class Tenancy
         }
 
         return $conversation->tenant_type === $reference[0] && (string) $conversation->tenant_id === $reference[1];
+    }
+
+    /**
+     * The conversation carries a tenant. Reads the loaded attributes only: without the migration (or with a partial
+     * select) the columns are absent, and `Model::shouldBeStrict()` would throw on a plain property read.
+     */
+    public static function hasTenant(Conversation $conversation): bool
+    {
+        $attributes = $conversation->getAttributes();
+
+        return ($attributes['tenant_type'] ?? null) !== null && ($attributes['tenant_id'] ?? null) !== null;
     }
 
     /**
@@ -199,7 +257,7 @@ final class Tenancy
      */
     public static function channelKeyOf(Conversation $conversation): ?string
     {
-        if ($conversation->tenant_type === null || $conversation->tenant_id === null) {
+        if (!self::hasTenant($conversation)) {
             return null;
         }
 
@@ -215,20 +273,35 @@ final class Tenancy
     }
 
     /**
-     * Narrow a query of USERS to the current tenant's people. The plugin's `->tenantUsers()` closure decides; else the
-     * tenant's `members` (or `users`) relation (`tenancy.members_relation`); else Filament's own
-     * `HasTenants::canAccessTenant()` is asked of every user — correct, but it reads the whole table, so give the
-     * relation or the closure on a big one.
+     * Narrow a query of USERS to the current tenant's people (see {@see self::limitUsersTo()}). In the fail-closed state:
+     * nobody.
      *
      * @param Builder<Model> $query
      */
     public static function limitUsers(Builder $query): void
     {
-        if (!self::active()) {
+        if (self::closed()) {
+            $query->whereRaw('1 = 0');
+
             return;
         }
 
-        $tenant = self::tenant();
+        if (self::active()) {
+            self::limitUsersTo($query, self::tenant());
+        }
+    }
+
+    /**
+     * Narrow a query of users to one tenant's people. The plugin's `->tenantUsers()` closure decides; else the tenant's
+     * `members` (or `users`) relation when it returns the chat's user model (`tenancy.members_relation`); else, for a
+     * tenant MODEL, Filament's own `HasTenants::canAccessTenant()` is asked of every user — correct, but it reads the whole
+     * table, so give the relation or the closure on a big one. A plain-key tenant with no closure: nobody (fail closed —
+     * the plugin cannot know who belongs where).
+     *
+     * @param Builder<Model> $query
+     */
+    public static function limitUsersTo(Builder $query, mixed $tenant): void
+    {
         $custom = app(ChatManager::class)->tenantUsersUsing;
 
         if ($custom !== null) {
@@ -237,29 +310,29 @@ final class Tenancy
             return;
         }
 
+        if (!$tenant instanceof Model) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
         $model = $query->getModel();
         $key = $model->qualifyColumn($model->getKeyName());
 
-        if ($tenant instanceof Model) {
-            foreach (array_unique([(string) config('filament-chat.tenancy.members_relation', 'members'), 'members', 'users']) as $name) {
-                if ($name === '' || !method_exists($tenant, $name)) {
-                    continue;
-                }
-
-                $relation = $tenant->{$name}();
-
-                if ($relation instanceof Relation) {
-                    $related = $relation->getRelated();
-                    $query->whereIn($key, $relation->getQuery()->select($related->qualifyColumn($related->getKeyName())));
-
-                    return;
-                }
+        foreach (array_unique([(string) config('filament-chat.tenancy.members_relation', 'members'), 'members', 'users']) as $name) {
+            if ($name === '' || !method_exists($tenant, $name)) {
+                continue;
             }
-        }
 
-        // A plain tenant key with no closure: nothing to ask — people are not narrowed (give ->tenantUsers()).
-        if (!$tenant instanceof Model) {
-            return;
+            $relation = $tenant->{$name}();
+
+            // Only a relation that lists the chat's own user model says who the people are.
+            if ($relation instanceof Relation && $relation->getRelated() instanceof $model) {
+                $related = $relation->getRelated();
+                $query->whereIn($key, $relation->getQuery()->select($related->qualifyColumn($related->getKeyName())));
+
+                return;
+            }
         }
 
         // No relation to ask: Filament's own rule, user by user.
@@ -275,10 +348,36 @@ final class Tenancy
     }
 
     /**
+     * Of the given user keys, those who belong to the conversation's own tenant (not the current one) — whom a message
+     * may be announced to. A conversation without a tenant: all of them.
+     *
+     * @param list<int|string> $ids
+     *
+     * @return list<int|string>
+     */
+    public static function belonging(Conversation $conversation, array $ids): array
+    {
+        if ($ids === [] || !self::hasTenant($conversation)) {
+            return $ids;
+        }
+
+        $tenant = self::modelOf($conversation) ?? ($conversation->tenant_type === 'tenant' ? (string) $conversation->tenant_id : null);
+
+        if ($tenant === null) {
+            return [];
+        }
+
+        $model = ChatConfig::userModel();
+        $query = $model::query()->whereKey($ids);
+        self::limitUsersTo($query, $tenant);
+
+        return array_values($query->pluck((new $model)->getKeyName())->all());
+    }
+
+    /**
      * Whether `$user` may listen on the tenant channel `$segment` (see {@see self::channelKey()}). The plugin's
      * `->authorizeTenantChannelUsing()` closure decides; else the panel's tenant model is looked up and
-     * `HasTenants::canAccessTenant()` asked. When the tenant cannot be found: no; with no panel tenancy and no closure the
-     * tenant cannot be verified and the channel stays open (it carries only the person's own events).
+     * `HasTenants::canAccessTenant()` asked. When the tenant cannot be found or verified (an own tenancy without the closure): no.
      */
     public static function mayListen(Model $user, string $segment): bool
     {
@@ -292,13 +391,8 @@ final class Tenancy
 
         $model = app(ChatManager::class)->panel()?->getTenantModel();
 
-        // Not a Filament tenancy and no closure: the tenant cannot be verified here. The channel only carries events
-        // addressed to this very person (the key is checked by the caller), so it is left open rather than silenced.
-        if ($model === null) {
-            return true;
-        }
-
-        if (!$user instanceof HasTenants || $hash !== substr(md5((new $model)->getMorphClass()), 0, 8)) {
+        // Not a Filament tenancy and no closure: the tenant cannot be verified — closed (give ->authorizeTenantChannelUsing()).
+        if ($model === null || !$user instanceof HasTenants || $hash !== substr(md5((new $model)->getMorphClass()), 0, 8)) {
             return false;
         }
 
@@ -316,7 +410,7 @@ final class Tenancy
      */
     public static function modelOf(Conversation $conversation): ?Model
     {
-        if ($conversation->tenant_type === null || $conversation->tenant_id === null) {
+        if (!self::hasTenant($conversation)) {
             return null;
         }
 

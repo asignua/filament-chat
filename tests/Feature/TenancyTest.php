@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat\Tests\Feature;
 
+use Asignua\FilamentChat\Data\GroupData;
+use Asignua\FilamentChat\Data\MessageData;
 use Asignua\FilamentChat\Events\ChatUpdated;
 use Asignua\FilamentChat\Livewire\ChatWindow;
 use Asignua\FilamentChat\Models\Conversation;
 use Asignua\FilamentChat\Pages\Chat;
 use Asignua\FilamentChat\Repositories\ConversationRepository;
+use Asignua\FilamentChat\Services\ChatService;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\ChatUsers;
 use Asignua\FilamentChat\Support\Presence;
@@ -16,8 +19,12 @@ use Asignua\FilamentChat\Support\Realtime;
 use Asignua\FilamentChat\Support\Tenancy;
 use Asignua\FilamentChat\Tests\TestCase;
 use Filament\Facades\Filament;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use InvalidArgumentException;
 use Livewire\Livewire;
 use Workbench\App\Models\Team;
 use Workbench\App\Models\User;
@@ -60,6 +67,7 @@ class TenancyTest extends TestCase
         Filament::setTenant(null, isQuiet: true);
         app(ChatManager::class)->resolveTenantUsing = null;
         app(ChatManager::class)->tenantUsersUsing = null;
+        app(ChatManager::class)->authorizeTenantChannelUsing = null;
 
         parent::tearDown();
     }
@@ -283,5 +291,148 @@ class TenancyTest extends TestCase
         $this->assertFalse(Tenancy::active());
         $this->assertNull($conversation->tenant_type);
         $this->assertNotNull(app(ConversationRepository::class)->findByUlid($conversation->ulid));
+    }
+
+    // --- Fail closed: a tenancy panel page without a {tenant} (profile, registration, MFA…) -------------------------
+
+    public function test_without_a_tenant_in_an_interactive_request_nothing_of_any_tenant_is_visible(): void
+    {
+        $this->in($this->acme);
+        $conversation = $this->group($this->shared, 'Acme staff', $this->acmeOnly);
+        $this->send($conversation, $this->acmeOnly, 'Acme text');
+        $dm = $this->direct($this->shared, $this->acmeOnly);
+
+        // The profile page: signed in, no tenant.
+        Filament::setTenant(null, isQuiet: true);
+        $this->actingAs($this->shared);
+        $repository = app(ConversationRepository::class);
+
+        $this->assertTrue(Tenancy::closed());
+        $this->assertSame([], ChatUsers::search('', $this->shared), 'people search lists nobody');
+        $this->assertSame([], ChatUsers::search('Gary'));
+        $this->assertSame([], ChatUsers::chattableIds([$this->globexOnly->id, $this->acmeOnly->id]));
+        $this->assertCount(0, $repository->listFor($this->shared));
+        $this->assertSame(0, $repository->unreadTotalFor($this->shared));
+        $this->assertNull($repository->findByUlid($conversation->ulid));
+        $this->assertFalse($this->shared->can('view', $conversation));
+        $this->assertFalse(Tenancy::owns($conversation));
+
+        // Direct service / repository calls (a forged Livewire call) are refused.
+        $service = app(ChatService::class);
+        $this->assertThrowsInvalid(fn () => $service->startDirect($this->shared, $this->globexOnly));
+        $this->assertThrowsInvalid(fn () => $service->createGroup(new GroupData('X', [$this->globexOnly->id]), $this->shared));
+        $this->assertThrowsInvalid(fn () => $service->updateGroup($conversation, new GroupData('Acme staff', [$this->globexOnly->id])));
+        $this->assertThrowsInvalid(fn () => $service->send($dm, $this->shared, new MessageData('from the profile page')));
+        $this->assertFalse($service->markRead($conversation, $this->shared, 1));
+
+        // The UI is not rendered.
+        $html = $this->panelHooks();
+        $this->assertStringNotContainsString('fchat-scope', $html);
+        $this->assertStringNotContainsString('fchat-dock-button', $html);
+        $this->assertSame(0, DB::table('chat_messages')->where('body', 'from the profile page')->count());
+    }
+
+    public function test_the_ui_renders_inside_a_tenant(): void
+    {
+        $this->in($this->acme);
+        $this->actingAs($this->shared);
+
+        $this->assertFalse(Tenancy::closed());
+        $html = $this->panelHooks();
+        $this->assertStringContainsString('fchat-scope', $html);
+        $this->assertStringContainsString('fchat-dock-button', $html);
+    }
+
+    public function test_console_without_a_user_is_not_closed(): void
+    {
+        $this->in($this->acme);
+        $conversation = $this->direct($this->shared, $this->acmeOnly);
+        Filament::setTenant(null, isQuiet: true);
+
+        $this->assertFalse(Tenancy::closed());
+        $this->assertNotNull(app(ConversationRepository::class)->findByUlid($conversation->ulid));
+    }
+
+    public function test_someone_detached_from_the_tenant_gets_no_notification_text(): void
+    {
+        $this->in($this->acme);
+        $conversation = $this->group($this->shared, 'Acme staff', $this->acmeOnly);
+        $this->acme->members()->detach($this->acmeOnly->id);
+
+        $this->send($conversation, $this->shared, 'Secret text');
+
+        $this->assertSame(0, $this->acmeOnly->notifications()->count(), 'a detached member is still in the conversation but is told nothing');
+        $this->acme->members()->attach($this->acmeOnly->id);
+        $this->send($conversation, $this->shared, 'Hi @Alice Acme');
+        $this->assertSame(1, $this->acmeOnly->notifications()->count(), 'a member of the tenant is notified');
+    }
+
+    public function test_a_plain_key_tenant_without_closures_fails_closed(): void
+    {
+        $panel = Filament::getPanel('admin');
+        $panel->tenant(null);
+        app(ChatManager::class)->resolveTenantUsing = fn (): string => 'acme';
+
+        $this->assertSame([], ChatUsers::chattableIds([$this->acmeOnly->id]), 'people are not narrowed by guessing: nobody');
+        $this->assertFalse(Tenancy::mayListen($this->acmeOnly, Tenancy::channelKey(['tenant', 'acme']) ?? ''));
+
+        app(ChatManager::class)->authorizeTenantChannelUsing = fn ($user, string $segment): bool => true;
+        $this->assertTrue(Tenancy::mayListen($this->acmeOnly, 'x-1'));
+        app(ChatManager::class)->authorizeTenantChannelUsing = null;
+    }
+
+    public function test_a_members_relation_of_another_model_is_not_taken_for_the_users(): void
+    {
+        $tenant = TeamWithForeignMembers::query()->findOrFail($this->acme->id);
+        $query = ChatUsers::query();
+
+        Tenancy::limitUsersTo($query, $tenant);
+
+        // `members()` lists Teams here: the plugin falls back to canAccessTenant() instead of mixing team ids with user ids.
+        $this->assertEqualsCanonicalizing([$this->shared->id, $this->acmeOnly->id], $query->pluck('id')->all());
+    }
+
+    /**
+     * What the panel's BODY_END and USER_MENU_BEFORE hooks print on a page.
+     */
+    private function panelHooks(): string
+    {
+        $panel = Filament::getPanel('admin');
+        $hooks = (new \ReflectionProperty($panel, 'renderHooks'))->getValue($panel);
+        $html = '';
+
+        foreach ([PanelsRenderHook::BODY_END, PanelsRenderHook::USER_MENU_BEFORE] as $name) {
+            foreach ($hooks[$name][''] ?? [] as $hook) {
+                $html .= $hook();
+            }
+        }
+
+        return $html;
+    }
+
+    private function assertThrowsInvalid(\Closure $call): void
+    {
+        try {
+            $call();
+        } catch (InvalidArgumentException) {
+            $this->addToAssertionCount(1);
+
+            return;
+        }
+
+        $this->fail('InvalidArgumentException expected');
+    }
+}
+
+class TeamWithForeignMembers extends Team
+{
+    protected $table = 'teams';
+
+    /**
+     * @return BelongsToMany<Team, $this>
+     */
+    public function members(): BelongsToMany
+    {
+        return $this->belongsToMany(Team::class, 'team_user', 'team_id', 'user_id');
     }
 }

@@ -12,6 +12,7 @@ use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Support\ChatManager;
 use Asignua\FilamentChat\Support\References\AllResources;
 use Asignua\FilamentChat\Support\References\ReferenceType;
+use Asignua\FilamentChat\Support\Tenancy;
 use BackedEnum;
 use Closure;
 use Filament\Contracts\Plugin;
@@ -416,11 +417,11 @@ class FilamentChatPlugin implements Plugin
             // Ours sit under `.fchat-scope`, so being later cannot hurt the host's own pages.
             ->renderHook(PanelsRenderHook::STYLES_AFTER, fn (): string => '<link rel="stylesheet" href="'
                 .e(FilamentAsset::getStyleHref(FilamentChatServiceProvider::STYLESHEET, FilamentChatServiceProvider::PACKAGE)).'" />')
-            ->renderHook(PanelsRenderHook::HEAD_START, fn (): string => ChatConfig::dock() && ChatConfig::pinnable() ? view('filament-chat::hooks.pinned')->render() : '')
-            ->renderHook(PanelsRenderHook::HEAD_END, fn (): string => ChatConfig::tabBadge() ? view('filament-chat::hooks.tab-badge')->render() : '')
-            ->renderHook(PanelsRenderHook::SCRIPTS_AFTER, fn (): string => view('filament-chat::hooks.echo')->render())
-            ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn (): string => view('filament-chat::hooks.dock-button', ['dock' => ChatConfig::dock()])->render())
-            ->renderHook(PanelsRenderHook::BODY_END, fn (): string => ChatConfig::dock() ? view('filament-chat::hooks.dock-panel', ['pinnable' => ChatConfig::pinnable()])->render() : '');
+            ->renderHook(PanelsRenderHook::HEAD_START, fn (): string => !Tenancy::closed() && ChatConfig::dock() && ChatConfig::pinnable() ? view('filament-chat::hooks.pinned')->render() : '')
+            ->renderHook(PanelsRenderHook::HEAD_END, fn (): string => !Tenancy::closed() && ChatConfig::tabBadge() ? view('filament-chat::hooks.tab-badge')->render() : '')
+            ->renderHook(PanelsRenderHook::SCRIPTS_AFTER, fn (): string => Tenancy::closed() ? '' : view('filament-chat::hooks.echo')->render())
+            ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn (): string => Tenancy::closed() ? '' : view('filament-chat::hooks.dock-button', ['dock' => ChatConfig::dock()])->render())
+            ->renderHook(PanelsRenderHook::BODY_END, fn (): string => !Tenancy::closed() && ChatConfig::dock() ? view('filament-chat::hooks.dock-panel', ['pinnable' => ChatConfig::pinnable()])->render() : '');
     }
 
     public function boot(Panel $panel): void {}
