@@ -189,6 +189,7 @@ public `openMessage($ulid)`, event `Events\MessageSent`. A `models.message` subc
 | record shows only its type / "no access" | the policy trap above |
 | "Laravel Echo cannot be found" | realtime on, `realtime.echo` = host/filament without Echo on the page |
 | messages after ~15 s | realtime off, or socket unreachable: browser network tab → ws URL; `FILAMENT_CHAT_WS_*` |
+| messages missed while offline | fixed in 1.8.1: a real reconnect (pusher `state_change` → `connected` after a drop, not the first connect) or a tab hidden longer than the poll interval refreshes once (`partials/reconnect.blade.php`) |
 | 403 `/broadcasting/auth` | not logged in on `web`; custom guard → register `Broadcast::routes()` with that guard and set `register_auth_route` false |
 | no bell | `->databaseNotifications()`, `notifications` table, `Notifiable` trait |
 | Chat page 404 on a package-built panel | plugin added in `boot()` — move to `resolving(PanelRegistry)` in `register()` |

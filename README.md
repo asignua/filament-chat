@@ -359,6 +359,9 @@ payload — decide what anyone sees. Each person listens on a private channel
 `filament-chat.user.{key}`, authorised by the package. Events are broadcast immediately
 (`ShouldBroadcastNow`) — no queue worker needed; if the socket is down the message is still saved
 and the counters catch up by polling.
+After the websocket reconnects, and when a tab comes back after being hidden longer than the poll
+interval, the open conversation and the unread badge refresh once — events sent in between are not
+lost.
 
 ### Laravel Reverb
 
