@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat\Tests\Feature;
 
+use Asignua\FilamentChat\Livewire\ChatDock;
+use Asignua\FilamentChat\Livewire\ChatWindow;
+use Livewire\Livewire;
 use Asignua\FilamentChat\Events\ChatUpdated;
 use Asignua\FilamentChat\FilamentChatPlugin;
 use Asignua\FilamentChat\Support\ChatConfig;
@@ -38,6 +41,20 @@ class PluginRealtimeTest extends TestCase
     {
         $this->assertTrue(ChatConfig::realtime());
         $this->assertNotNull(Broadcast::driver()->getChannels()->get(ChatUpdated::CHANNEL.'{key}'));
+    }
+
+    public function test_window_and_dock_catch_up_after_a_reconnect_when_realtime_is_on(): void
+    {
+        $me = $this->user();
+        $this->actingAs($me);
+
+        Livewire::test(ChatWindow::class)
+            ->assertSeeHtml('window.filamentChatReconnect')
+            ->assertSeeHtml('$wire.poll()')
+            ->assertSeeHtml("addEventListener('visibilitychange'")
+            ->assertSeeHtml('state_change');
+        Livewire::test(ChatDock::class)
+            ->assertSeeHtml('$wire.refreshUnread()');
     }
 }
 

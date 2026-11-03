@@ -5,8 +5,12 @@
     x-effect — the same number on the tab badge (hooks/tab-badge).
 --}}
 @use('Asignua\FilamentChat\Livewire\ChatDock')
+@use('Asignua\FilamentChat\Support\ChatConfig')
 @use('Asignua\FilamentChat\Pages\Chat')
-<div wire:poll.{{ $polling }}s class="fchat-dock-button" x-data x-effect="window.filamentChatBadge?.($wire.unread)">
+<div wire:poll.{{ $polling }}s class="fchat-dock-button" x-data @if (ChatConfig::realtime()) x-init="window.filamentChatReconnect?.($el, () => $wire.refreshUnread(), {{ $polling * 1000 }})" @endif x-effect="window.filamentChatBadge?.($wire.unread)">
+    @if (ChatConfig::realtime())
+        @include('filament-chat::partials.reconnect')
+    @endif
     @unless ($quiet)
         <x-filament::icon-button
             :icon="Chat::icon()"

@@ -36,6 +36,39 @@ class ChatWindowTest extends TestCase
             ->assertSee('Olga');
     }
 
+    public function test_reconnect_script_is_rendered_with_realtime(): void
+    {
+        $me = $this->user();
+
+        Livewire::actingAs($me)->test(ChatWindow::class)->assertSee('filamentChatReconnect')->assertSee('state_change');
+    }
+
+    public function test_poll_is_the_refresh_and_does_not_mark_read_while_hidden(): void
+    {
+        $me = $this->user();
+        $other = $this->user(['name' => 'Olga']);
+        $conversation = $this->direct($me, $other);
+
+        $window = Livewire::actingAs($me)->test(ChatWindow::class, ['conversation' => $conversation->ulid])
+            ->call('setDocumentHidden', true);
+        $this->send($conversation, $other, 'Missed while offline');
+        $window->call('poll');
+
+        $this->assertSame(1, app(ConversationRepository::class)->unreadTotalFor($me));
+
+        $window->call('setDocumentHidden', false)->call('poll');
+        $this->assertSame(0, app(ConversationRepository::class)->unreadTotalFor($me));
+    }
+
+    public function test_no_reconnect_script_without_realtime(): void
+    {
+        config()->set('filament-chat.realtime.enabled', false);
+        $me = $this->user();
+
+        Livewire::actingAs($me)->test(ChatWindow::class)->assertDontSee('filamentChatReconnect');
+        Livewire::actingAs($me)->test(ChatDock::class)->assertDontSee('filamentChatReconnect');
+    }
+
     public function test_page_size_cannot_be_set_from_the_browser(): void
     {
         $me = $this->user();

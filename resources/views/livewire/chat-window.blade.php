@@ -45,9 +45,13 @@
     @endif
     {{-- A tab in the background marks nothing as read (the slide-over's own open/closed state is a separate flag). --}}
     x-data
-    x-init="if (document.hidden) $wire.setDocumentHidden(true)"
+    x-init="if (document.hidden) $wire.setDocumentHidden(true){{ $realtime ? '; window.filamentChatReconnect?.($el, () => $wire.poll(), '.($polling * 1000).')' : '' }}"
     x-on:visibilitychange.document="$wire.setDocumentHidden(document.hidden)"
 >
+    @if ($realtime)
+        @include('filament-chat::partials.reconnect')
+    @endif
+
     {{-- Conversation list --}}
     <aside
         wire:key="fchat-list"

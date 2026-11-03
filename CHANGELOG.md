@@ -2,6 +2,9 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## v1.8.1 - unreleased
+- Fixed: in real-time mode events sent while the websocket was down (or the tab hidden for long) were lost until the 60 s badge poll, and the open conversation never caught up. Now, after a real reconnect of the Echo pusher connection, and when a tab comes back after being hidden longer than the poll interval, the open conversation and the unread badge refresh once. Nothing is bound without Echo / a pusher connector; handlers unbind when the component leaves the DOM. Reading is still not marked while the tab or window is hidden.
+
 ## v1.8.0 - 2026-11-01
 - New: multi-tenancy. With `$panel->tenant(...)` (or `->tenantScoped()` / `->resolveTenantUsing()` for your own tenancy) conversations, the people to write to, unread counters, presence ("N online"), bell links and the real-time channels are kept per tenant; a person in two tenants sees two separate chats, and the same pair has one direct conversation per tenant. Opt out with `->tenantScoped(false)`; `->tenantUsers()` and `->authorizeTenantChannelUsing()` for custom tenancies; config `tenancy.enabled` / `tenancy.members_relation`.
 - New: fifth migration `add_tenant_to_filament_chat_conversations` (nullable `tenant_type` / `tenant_id` on conversations, indexed). Without it nothing changes and a warning is logged when tenancy is on. Re-run `vendor:publish --tag=filament-chat-migrations` and `migrate`. Conversations that exist already have no tenant and are visible only while scoping is off.
