@@ -2,7 +2,7 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
-## v1.8.1 - unreleased
+## v1.8.1 - 2026-11-03
 - Fixed: in real-time mode events sent while the websocket was down (or the tab hidden for long) were lost until the 60 s badge poll, and the open conversation never caught up. Now, after a real reconnect of the Echo pusher connection, and when a tab comes back after being hidden longer than the poll interval, the open conversation and the unread badge refresh once. Nothing is bound without Echo / a pusher connector; handlers unbind when the component leaves the DOM. Reading is still not marked while the tab or window is hidden.
 
 ## v1.8.0 - 2026-11-01
