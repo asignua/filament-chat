@@ -16,6 +16,7 @@
 
         let connection = null;
         let wasDown = false;
+        let seenConnected = false;
         let hiddenAt = document.hidden ? Date.now() : null;
 
         const onState = (states) => {
@@ -23,11 +24,16 @@
                 return unbind();
             }
 
-            if (states.current !== 'connected') {
-                wasDown = true;
-            } else if (wasDown) {
+            // The initial initialized → connecting → connected is not a reconnect: count a drop
+            // only after the connection has been up at least once.
+            if (states.current === 'connected') {
+                if (wasDown) {
+                    refresh();
+                }
                 wasDown = false;
-                refresh();
+                seenConnected = true;
+            } else if (seenConnected) {
+                wasDown = true;
             }
         };
 
@@ -56,7 +62,7 @@
             connection = window.Echo?.connector?.pusher?.connection ?? null;
 
             if (connection) {
-                // Whatever state it is in now, the first connect is not a reconnect.
+                seenConnected = connection.state === 'connected';
                 connection.bind('state_change', onState);
             }
         };
