@@ -174,4 +174,43 @@ class ConfigurationTest extends TestCase
 
         Event::assertNotDispatched(ChatUpdated::class);
     }
+
+    public function test_client_address_resolves_plugin_then_vite_reverb_then_filament_then_page(): void
+    {
+        $key = 'filament-chat.realtime.client';
+        $none = ['host' => null, 'port' => null, 'scheme' => null];
+
+        // 4. nothing set: the page decides (nulls).
+        config([$key => $none, 'filament.broadcasting.echo' => null]);
+        $this->assertSame($none, ChatConfig::clientAddress());
+
+        // 3. Filament's own Echo config.
+        config(['filament.broadcasting.echo' => ['wsHost' => 'fil.example.com', 'wsPort' => 6001, 'wssPort' => 6443, 'forceTLS' => true]]);
+        $this->assertSame(['host' => 'fil.example.com', 'port' => 6443, 'scheme' => 'https'], ChatConfig::clientAddress());
+
+        config(['filament.broadcasting.echo' => ['wsHost' => 'fil.example.com', 'wsPort' => '6001', 'forceTLS' => false]]);
+        $this->assertSame(['host' => 'fil.example.com', 'port' => 6001, 'scheme' => 'http'], ChatConfig::clientAddress());
+
+        // 2. VITE_REVERB_* (read by the config file through env()) beats Filament.
+        $_SERVER['VITE_REVERB_HOST'] = 'vite.example.com';
+        $_SERVER['VITE_REVERB_PORT'] = '8443';
+        $_SERVER['VITE_REVERB_SCHEME'] = 'https';
+
+        try {
+            $loaded = require __DIR__.'/../../config/filament-chat.php';
+        } finally {
+            unset($_SERVER['VITE_REVERB_HOST'], $_SERVER['VITE_REVERB_PORT'], $_SERVER['VITE_REVERB_SCHEME']);
+        }
+
+        $this->assertSame(['host' => 'vite.example.com', 'port' => '8443', 'scheme' => 'https'], $loaded['realtime']['client']);
+        config([$key => $loaded['realtime']['client']]);
+        $this->assertSame(['host' => 'vite.example.com', 'port' => 8443, 'scheme' => 'https'], ChatConfig::clientAddress());
+
+        // 1. The plugin's own value beats everything, field by field.
+        config([$key => ['host' => 'own.example.com', 'port' => null, 'scheme' => null]]);
+        $this->assertSame(['host' => 'own.example.com', 'port' => 6001, 'scheme' => 'http'], ChatConfig::clientAddress());
+
+        // echoOptions() carries the resolved address.
+        $this->assertSame('own.example.com', ChatConfig::echoOptions()['host']);
+    }
 }

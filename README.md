@@ -382,8 +382,17 @@ That is all: by default (`realtime.echo = 'plugin'`) the plugin brings Laravel E
 reuses the Echo that Filament already ships — configured from the broadcasting connection. It also
 registers `/broadcasting/auth` if your app has not (`realtime.register_auth_route`).
 
-**Where the browser connects.** PHP publishes to `REVERB_HOST:REVERB_PORT`; the browser connects to
-the page's own host, protocol and default port unless told otherwise:
+**Where the browser connects (shared by all asign plugins).** Each field (host, port, scheme) is resolved on its own, first set value wins:
+
+1. `FILAMENT_CHAT_WS_HOST` / `_PORT` / `_SCHEME` (this plugin only);
+2. Laravel's browser-side variables `VITE_REVERB_HOST` / `VITE_REVERB_PORT` / `VITE_REVERB_SCHEME` (written by `php artisan install:broadcasting --reverb`);
+3. Filament's own Echo config, `filament.broadcasting.echo` (`wsHost`, `wsPort` / `wssPort`, `forceTLS`);
+4. the page's own host, protocol and default port.
+
+Whichever plugin renders its hook first creates `window.Echo` for the whole page, so a plugin without its own address must not
+fall back to `localhost`: set `VITE_REVERB_*` once and every asign plugin on the site (chat, kanban, record lock) connects to the same place.
+
+Per-plugin override:
 
 ```dotenv
 FILAMENT_CHAT_WS_HOST=ws.example.com   # empty = the page's host

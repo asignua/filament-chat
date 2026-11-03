@@ -153,9 +153,9 @@ return [
         'connection' => env('FILAMENT_CHAT_BROADCAST_CONNECTION'),
         'echo' => env('FILAMENT_CHAT_ECHO', 'plugin'),
         'client' => [
-            'host' => env('FILAMENT_CHAT_WS_HOST'),
-            'port' => env('FILAMENT_CHAT_WS_PORT'),
-            'scheme' => env('FILAMENT_CHAT_WS_SCHEME'),
+            'host' => env('FILAMENT_CHAT_WS_HOST', env('VITE_REVERB_HOST')),
+            'port' => env('FILAMENT_CHAT_WS_PORT', env('VITE_REVERB_PORT')),
+            'scheme' => env('FILAMENT_CHAT_WS_SCHEME', env('VITE_REVERB_SCHEME')),
         ],
         'register_auth_route' => true,
     ],

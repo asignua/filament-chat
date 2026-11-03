@@ -372,20 +372,58 @@ final class ChatConfig
         $settings = config('broadcasting.connections.'.$connection);
         $settings = is_array($settings) ? $settings : [];
         $options = is_array($settings['options'] ?? null) ? $settings['options'] : [];
-        $client = config('filament-chat.realtime.client');
-        $client = is_array($client) ? $client : [];
+        $client = self::clientAddress();
         $driver = self::broadcaster() ?? 'reverb';
-
-        $port = $client['port'] ?? null;
 
         return [
             'broadcaster' => $driver === 'reverb' ? 'reverb' : 'pusher',
             'key' => (string) ($settings['key'] ?? ''),
             'cluster' => self::nonEmptyString($options['cluster'] ?? null),
-            'host' => self::nonEmptyString($client['host'] ?? null),
-            'port' => is_numeric($port) ? (int) $port : null,
-            'scheme' => self::nonEmptyString($client['scheme'] ?? null),
+            'host' => $client['host'],
+            'port' => $client['port'],
+            'scheme' => $client['scheme'],
         ];
+    }
+
+    /**
+     * Where the BROWSER reaches the websocket server. Per field, the first that is set wins:
+     * the plugin's own `realtime.client.*` (env FILAMENT_CHAT_WS_*; the config falls back to Laravel's
+     * `VITE_REVERB_HOST/PORT/SCHEME`), then Filament's own Echo config (`filament.broadcasting.echo`:
+     * wsHost, wsPort/wssPort, forceTLS), else null (the page's own host, protocol and default port).
+     *
+     * @return array{host: string|null, port: int|null, scheme: string|null}
+     */
+    public static function clientAddress(): array
+    {
+        $client = config('filament-chat.realtime.client');
+        $client = is_array($client) ? $client : [];
+        $echo = config('filament.broadcasting.echo');
+        $echo = is_array($echo) ? $echo : [];
+
+        $host = self::nonEmptyString($client['host'] ?? null) ?? self::nonEmptyString($echo['wsHost'] ?? null);
+
+        $scheme = self::nonEmptyString($client['scheme'] ?? null);
+
+        if ($scheme === null && isset($echo['forceTLS'])) {
+            $scheme = filter_var($echo['forceTLS'], FILTER_VALIDATE_BOOLEAN) ? 'https' : 'http';
+        }
+
+        $port = $client['port'] ?? null;
+
+        if (!is_numeric($port)) {
+            $own = $scheme === 'https' ? [$echo['wssPort'] ?? null, $echo['wsPort'] ?? null] : [$echo['wsPort'] ?? null, $echo['wssPort'] ?? null];
+            $port = null;
+
+            foreach ($own as $candidate) {
+                if (is_numeric($candidate)) {
+                    $port = $candidate;
+
+                    break;
+                }
+            }
+        }
+
+        return ['host' => $host, 'port' => is_numeric($port) ? (int) $port : null, 'scheme' => $scheme];
     }
 
     // --- Polling & notifications ------------------------------------------------
