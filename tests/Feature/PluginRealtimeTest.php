@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentChat\Tests\Feature;
 
-use Asignua\FilamentChat\Livewire\ChatDock;
-use Asignua\FilamentChat\Livewire\ChatWindow;
-use Livewire\Livewire;
 use Asignua\FilamentChat\Events\ChatUpdated;
 use Asignua\FilamentChat\FilamentChatPlugin;
+use Asignua\FilamentChat\Livewire\ChatDock;
+use Asignua\FilamentChat\Livewire\ChatWindow;
 use Asignua\FilamentChat\Support\ChatConfig;
 use Asignua\FilamentChat\Tests\TestCase;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Illuminate\Support\Facades\Broadcast;
+use Livewire\Livewire;
 use Workbench\App\Providers\AdminPanelProvider;
 
 /**
