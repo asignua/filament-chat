@@ -54,15 +54,12 @@ class NotificationEscapingTest extends TestCase
             'author' => (string) $eve->id,
         ]);
 
-        // Filament 5.10+ keeps a sent toast in a mailbox that the response flushes
-        // and the browser then pulls; 5.9 left it in the session.
-        if (class_exists(NotificationMailbox::class)) {
-            app(NotificationMailbox::class)->flush();
-        }
+        // A sent toast sits in a mailbox that the response flushes and the browser then pulls.
+        app(NotificationMailbox::class)->flush();
 
         $notifications = new Notifications;
         $notifications->mount();
-        $notifications->pullNotificationsFromSession();
+        $notifications->pullNotifications();
         $toast = $notifications->notifications->last();
 
         $this->assertInstanceOf(Notification::class, $toast);
