@@ -5,6 +5,7 @@ All notable changes to `asignua/filament-chat` are documented here.
 ## v1.9.0 - 2026-11-10
 
 - Requires Filament ^5.11.2; replaced deprecated Filament API calls: `Notifications::pullNotificationsFromSession()` -> `pullNotifications()` (1, test only).
+- Laravel 13 deprecations: the workbench panel uses `PreventRequestForgery` (with a `VerifyCsrfToken` fallback for Laravel 12). Laravel 12 is still supported.
 
 ## v1.8.1 - 2026-11-03
 - Fixed: in real-time mode events sent while the websocket was down (or the tab hidden for long) were lost until the 60 s badge poll, and the open conversation never caught up. Now, after a real reconnect of the Echo pusher connection, and when a tab comes back after being hidden longer than the poll interval, the open conversation and the unread badge refresh once. Nothing is bound without Echo / a pusher connector; handlers unbind when the component leaves the DOM. Reading is still not marked while the tab or window is hidden.
