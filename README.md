@@ -734,6 +734,10 @@ composer format    # Pint
 npm run build      # rebuild resources/dist/filament-chat.css after changing views
 ```
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## More plugins by asign
 
 - [Chat Pro](https://filamentphp.com/plugins/asign-chat-pro) — files, typing indicator and search for Chat
@@ -742,6 +746,8 @@ npm run build      # rebuild resources/dist/filament-chat.css after changing vie
 - [Themes](https://filamentphp.com/plugins/asign-themes) — per-user and per-panel colour themes
 
 All plugins: <https://filamentphp.com/plugins?q=asign>
+
+Catalogue of free and commercial plugins: <https://asign.tech/en/plugins>
 
 ## License
 
