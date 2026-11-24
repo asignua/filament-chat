@@ -449,8 +449,11 @@ class TenancyTest extends TestCase
         $html = '';
 
         foreach ([PanelsRenderHook::BODY_END, PanelsRenderHook::USER_MENU_BEFORE] as $name) {
-            foreach ($hooks[$name][''] ?? [] as $hook) {
-                $html .= $hook();
+            // Filament <= 5.11 keeps `[$name][''][] = $hook`, 5.12 keeps `[$name][] = ['hook' => $hook, 'scopes' => ...]`.
+            foreach ($hooks[$name] ?? [] as $entry) {
+                foreach (is_array($entry) && array_key_exists('hook', $entry) ? [$entry['hook']] : (array) $entry as $hook) {
+                    $html .= $hook();
+                }
             }
         }
 
