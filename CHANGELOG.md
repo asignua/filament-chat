@@ -2,6 +2,10 @@
 
 All notable changes to `asignua/filament-chat` are documented here.
 
+## Unreleased
+
+- Requires Filament ^5.12 (was ^5.11.2): Filament 5.12 reworked the table rendering and the panel render hooks, so the test suite now targets that shape only. Stay on v1.9.0 for Filament 5.11.
+
 ## v1.9.0 - 2026-11-10
 
 - Requires Filament ^5.11.2; replaced deprecated Filament API calls: `Notifications::pullNotificationsFromSession()` -> `pullNotifications()` (1, test only).
